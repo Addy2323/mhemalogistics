@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Camera, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { API_HOST } from '@/config/api';
 
 const ProfilePictureUpload = () => {
     const { user, updateProfile } = useAuth();
@@ -73,9 +74,7 @@ const ProfilePictureUpload = () => {
             .substring(0, 2);
     };
 
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
-    const serverUrl = baseUrl.replace('/api', '');
-    const avatarSrc = user?.avatarUrl ? `${serverUrl}${user.avatarUrl}` : undefined;
+    const avatarSrc = user?.avatarUrl ? `${API_HOST}${user.avatarUrl}` : undefined;
 
     return (
         <div className="relative group">

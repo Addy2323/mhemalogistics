@@ -7,6 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Send, X } from 'lucide-react';
 import apiClient, { ApiResponse } from '@/lib/api';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { API_HOST } from '@/config/api';
 
 import { format } from 'date-fns';
 
@@ -103,9 +104,7 @@ const ChatWindow = ({ chatId, onClose }: ChatWindowProps) => {
                 <div className="space-y-4">
                     {messages.map((msg) => {
                         const isMe = msg.senderId === user?.id;
-                        const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
-                        const serverUrl = baseUrl.replace('/api', '');
-                        const avatarSrc = msg.sender?.avatarUrl ? `${serverUrl}${msg.sender.avatarUrl}` : undefined;
+                        const avatarSrc = msg.sender?.avatarUrl ? `${API_HOST}${msg.sender.avatarUrl}` : undefined;
 
                         return (
                             <div

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from './AuthContext';
 import { toast } from 'sonner';
+import { API_HOST } from '@/config/api';
 
 interface ChatContextType {
     socket: Socket | null;
@@ -28,8 +29,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     useEffect(() => {
         if (user && token) {
-            const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
-            const socketUrl = baseUrl.replace('/api', '');
+            const socketUrl = API_HOST;
             console.log('Attempting to connect to socket at:', socketUrl);
             console.log('With token:', token.substring(0, 10) + '...');
 

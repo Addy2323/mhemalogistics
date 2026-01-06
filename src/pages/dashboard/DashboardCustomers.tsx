@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { API_HOST } from "@/config/api";
 
 
 interface Customer {
@@ -34,8 +35,7 @@ const DashboardCustomers = () => {
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [loading, setLoading] = useState(true);
 
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
-    const serverUrl = baseUrl.replace('/api', '');
+    const serverUrl = API_HOST;
 
     const getInitials = (name: string) => {
         if (!name) return '?';

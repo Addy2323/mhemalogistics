@@ -15,6 +15,7 @@ import { Search, Plus, TrendingUp, Package, DollarSign, Star, RefreshCw, MoreVer
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { API_HOST } from "@/config/api";
 
 
 interface Agent {
@@ -66,8 +67,7 @@ const DashboardAgents = () => {
 
     const isAdmin = user?.role === "ADMIN";
 
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
-    const serverUrl = baseUrl.replace('/api', '');
+    const serverUrl = API_HOST;
 
     const getInitials = (name: string) => {
         if (!name) return '?';

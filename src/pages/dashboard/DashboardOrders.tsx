@@ -26,6 +26,7 @@ import LocationPicker from "@/components/dashboard/LocationPicker";
 import { useChat } from "@/contexts/ChatContext";
 import ChatWindow from "@/components/chat/ChatWindow";
 import OrderReceipt from "../../components/dashboard/Receipt";
+import { API_HOST } from "@/config/api";
 import {
   Pagination,
   PaginationContent,
@@ -986,10 +987,10 @@ const DashboardOrders = () => {
                         {selectedOrder.productImageUrls.map((url, index) => (
                           <div key={index} className="relative aspect-square rounded-xl overflow-hidden border border-border">
                             <img
-                              src={`http://localhost:3000${url}`}
+                              src={`${API_HOST}${url}`}
                               alt={`Product ${index}`}
                               className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform"
-                              onClick={() => window.open(`http://localhost:3000${url}`, '_blank')}
+                              onClick={() => window.open(`${API_HOST}${url}`, '_blank')}
                             />
                           </div>
                         ))}
@@ -1133,7 +1134,7 @@ const DashboardOrders = () => {
                   <p className="text-sm text-muted-foreground mb-3">{qr.accountName}</p>
                   <div className="bg-white p-2 rounded-lg border border-border mb-3">
                     <img
-                      src={`http://localhost:3000${qr.qrCodeUrl}`}
+                      src={`${API_HOST}${qr.qrCodeUrl}`}
                       alt={qr.provider}
                       className="w-32 h-32 object-contain"
                     />

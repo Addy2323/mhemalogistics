@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { API_HOST } from "@/config/api";
 
 
 const DashboardSidebar = () => {
@@ -27,9 +28,7 @@ const DashboardSidebar = () => {
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
 
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
-  const serverUrl = baseUrl.replace('/api', '');
-  const avatarSrc = user?.avatarUrl ? `${serverUrl}${user.avatarUrl}` : undefined;
+  const avatarSrc = user?.avatarUrl ? `${API_HOST}${user.avatarUrl}` : undefined;
 
   const getInitials = (name: string) => {
     if (!name) return '?';

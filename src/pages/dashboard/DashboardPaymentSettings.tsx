@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Plus, Trash2, QrCode, Upload } from "lucide-react";
 import { toast } from "sonner";
+import { API_HOST } from "@/config/api";
 
 interface PaymentQRCode {
     id: string;
@@ -154,7 +155,7 @@ const DashboardPaymentSettings = () => {
 
                             <div className="aspect-square bg-white rounded-lg p-4 mb-4 flex items-center justify-center border border-border/50">
                                 <img
-                                    src={`http://localhost:3000${qr.qrCodeUrl}`}
+                                    src={`${API_HOST}${qr.qrCodeUrl}`}
                                     alt={`${qr.provider} QR Code`}
                                     className="w-full h-full object-contain"
                                 />

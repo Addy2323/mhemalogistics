@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { API_URL } from '@/config/api';
 
 export interface ApiResponse<T = any> {
     success: boolean;
@@ -9,7 +10,7 @@ export interface ApiResponse<T = any> {
 }
 
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
+const API_BASE_URL = API_URL;
 
 // Create axios instance
 const instance = axios.create({
