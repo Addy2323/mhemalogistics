@@ -1,0 +1,1249 @@
+import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
+import { useAuth } from "@/contexts/AuthContext";
+import { ordersAPI, transportAPI, paymentQRAPI, chatsAPI } from "@/lib/api";
+import OrderStatusBadge from "@/components/dashboard/OrderStatusBadge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Search, Plus, Eye, MapPin, Package, RefreshCw, CreditCard, DollarSign, MessageSquare, Printer, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import { formatDistanceToNow, format } from "date-fns";
+import LocationPicker from "@/components/dashboard/LocationPicker";
+import { useChat } from "@/contexts/ChatContext";
+import ChatWindow from "@/components/chat/ChatWindow";
+import OrderReceipt from "../../components/dashboard/Receipt";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
+
+interface TransportMethod {
+  id: string;
+  name: string;
+  basePrice: number;
+  pricePerKm?: number;
+  pricePerKg?: number;
+}
+
+interface PaymentQRCode {
+  id: string;
+  provider: string;
+  accountName: string;
+  lipaNumber?: string;
+  qrCodeUrl: string;
+}
+
+interface Order {
+  id: string;
+  orderNumber: string;
+  status: string;
+  paymentStatus: string;
+  pickupAddress: string;
+  deliveryAddress: string;
+  description?: string;
+  estimatedCost?: number;
+  actualCost?: number;
+  packageWeight?: number;
+  productImageUrls: string[];
+  isVerified: boolean;
+  customer: {
+    fullName: string;
+    email: string;
+    phone?: string;
+  };
+  agent?: {
+    user: {
+      fullName: string;
+      phone?: string;
+    };
+  };
+  transportMethod?: {
+    name: string;
+  };
+  placedAt: string;
+  updatedAt: string;
+}
+
+const DashboardOrders = () => {
+  const { t } = useTranslation();
+  const { user } = useAuth();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [isNewOrderOpen, setIsNewOrderOpen] = useState(false);
+  const [isPaymentOpen, setIsPaymentOpen] = useState(false);
+  const [isConfirmPaymentOpen, setIsConfirmPaymentOpen] = useState(false);
+  const [showReceipt, setShowReceipt] = useState(false);
+  const { setActiveChatId, activeChatId } = useChat();
+
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [transportMethods, setTransportMethods] = useState<TransportMethod[]>([]);
+  const [paymentQRs, setPaymentQRs] = useState<PaymentQRCode[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const pageSize = 10;
+
+  interface FormItem {
+    id: string;
+    description: string;
+    pickupAddress: string;
+    weight: string;
+    imageUrls: string[];
+    imagePreviews: string[];
+    isUploading: boolean;
+  }
+
+  const [items, setItems] = useState<FormItem[]>([
+    {
+      id: "1",
+      description: "",
+      pickupAddress: "",
+      weight: "",
+      imageUrls: [],
+      imagePreviews: [],
+      isUploading: false,
+    },
+  ]);
+
+  const [newOrder, setNewOrder] = useState({
+    pickupAddress: "",
+    deliveryAddress: "",
+    transportMethodId: "",
+  });
+
+  const [paymentData, setPaymentData] = useState({
+    amount: "",
+    method: "M_PESA"
+  });
+
+  const isAdmin = user?.role === "ADMIN";
+  const isAgent = user?.role === "AGENT";
+  const isCustomer = user?.role === "CUSTOMER";
+
+  const [isMapOpen, setIsMapOpen] = useState(false);
+  const [selectingField, setSelectingField] = useState<"pickup" | "delivery" | null>(null);
+
+  const handleLocationSelect = (lat: number, lng: number, address: string) => {
+    if (selectingField === "pickup") {
+      setNewOrder({
+        ...newOrder,
+        pickupAddress: address,
+        // pickupLat: lat, // Add these to state if needed
+        // pickupLng: lng
+      });
+    } else if (selectingField === "delivery") {
+      setNewOrder({
+        ...newOrder,
+        deliveryAddress: address,
+        // deliveryLat: lat,
+        // deliveryLng: lng
+      });
+    }
+    setIsMapOpen(false);
+    setSelectingField(null);
+  };
+
+  const openMapFor = (field: "pickup" | "delivery") => {
+    setSelectingField(field);
+    setIsMapOpen(true);
+  };
+
+  const handleAddItem = () => {
+    setItems([
+      ...items,
+      {
+        id: Date.now().toString(),
+        description: "",
+        pickupAddress: "",
+        weight: "",
+        imageUrls: [],
+        imagePreviews: [],
+        isUploading: false,
+      },
+    ]);
+  };
+
+  const handleRemoveItem = (id: string) => {
+    if (items.length === 1) return;
+    setItems(items.filter((item) => item.id !== id));
+  };
+
+  const handleItemChange = (id: string, field: keyof FormItem, value: any) => {
+    setItems(
+      items.map((item) => (item.id === id ? { ...item, [field]: value } : item))
+    );
+  };
+
+  const handleImageUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    itemId: string
+  ) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    // Previews
+    const newPreviews: string[] = [];
+    for (const file of files) {
+      const reader = new FileReader();
+      const preview = await new Promise<string>((resolve) => {
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(file);
+      });
+      newPreviews.push(preview);
+    }
+
+    setItems((prevItems) =>
+      prevItems.map((item) =>
+        item.id === itemId
+          ? { ...item, imagePreviews: [...item.imagePreviews, ...newPreviews], isUploading: true }
+          : item
+      )
+    );
+
+    try {
+      const formData = new FormData();
+      files.forEach((file) => {
+        formData.append("productImages", file);
+      });
+
+      const response: any = await ordersAPI.uploadProductImage(formData);
+      if (response && response.success) {
+        setItems((prevItems) =>
+          prevItems.map((item) =>
+            item.id === itemId
+              ? {
+                ...item,
+                imageUrls: [...item.imageUrls, ...response.data.productImageUrls],
+                isUploading: false,
+              }
+              : item
+          )
+        );
+        toast.success("Images uploaded successfully");
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Failed to upload images");
+      setItems((prevItems) =>
+        prevItems.map((item) =>
+          item.id === itemId
+            ? { ...item, imagePreviews: [], isUploading: false } // Clear previews on error? Or keep them?
+            : item
+        )
+      );
+    }
+  };
+
+  const handleVerifyOrder = async (orderId: string) => {
+    try {
+      const response: any = await ordersAPI.verifyOrder(orderId);
+      if (response && response.success) {
+        toast.success("Order verified successfully");
+        fetchOrders();
+        if (selectedOrder?.id === orderId) {
+          setSelectedOrder({ ...selectedOrder, isVerified: true });
+        }
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Failed to verify order");
+    }
+  };
+
+  const handleDeleteOrder = async (orderId: string) => {
+    if (!window.confirm("Are you sure you want to delete this order? This action cannot be undone and will delete all related records (chats, sales records, etc.).")) {
+      return;
+    }
+
+    try {
+      const response: any = await ordersAPI.delete(orderId);
+      if (response && response.success) {
+        toast.success("Order deleted successfully");
+        fetchOrders();
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Failed to delete order");
+    }
+  };
+
+  const handleOpenChat = async (orderId: string) => {
+    try {
+      const response: any = await chatsAPI.getByOrderId(orderId);
+      if (response.success && response.data) {
+        setActiveChatId(response.data.id);
+      } else {
+        toast.error("Chat room not found for this order");
+      }
+    } catch (error) {
+      console.error("Failed to open chat:", error);
+      toast.error("Failed to open chat. Please try again.");
+    }
+  };
+
+  useEffect(() => {
+    fetchOrders();
+    fetchTransportMethods();
+    if (isCustomer) {
+      fetchPaymentQRs();
+    }
+  }, [statusFilter, currentPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter]);
+
+  const fetchOrders = async () => {
+    try {
+      setLoading(true);
+      const params: any = {
+        page: currentPage,
+        limit: pageSize
+      };
+      if (statusFilter !== "all") params.status = statusFilter;
+
+      const response: any = await ordersAPI.list(params);
+      if (response && response.success) {
+        setOrders(response.data || []);
+        if (response.pagination) {
+          setTotalPages(response.pagination.pages);
+        }
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Failed to fetch orders");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchTransportMethods = async () => {
+    try {
+      const response: any = await transportAPI.list();
+      if (response && response.success) {
+        const data = response.data || [];
+        // Filter out duplicates and "Motorcycle"
+        const uniqueMethods = data.filter((method: TransportMethod, index: number, self: TransportMethod[]) =>
+          index === self.findIndex((t) => t.name === method.name) &&
+          method.name.toLowerCase() !== "motorcycle"
+        );
+        setTransportMethods(uniqueMethods);
+      }
+    } catch (error) {
+      console.error("Failed to fetch transport methods:", error);
+    }
+  };
+
+  const fetchPaymentQRs = async () => {
+    try {
+      const response: any = await paymentQRAPI.list();
+      if (response && response.success) {
+        setPaymentQRs(response.data || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch payment QRs:", error);
+    }
+  };
+
+  const handleCreateOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!newOrder.transportMethodId) {
+      toast.error("Please select a transport method");
+      return;
+    }
+
+    // Aggregate data
+    let totalWeight = 0;
+    const allImageUrls: string[] = [];
+    const descriptionParts: string[] = [];
+
+    items.forEach((item, index) => {
+      const weightVal = parseFloat(item.weight);
+      if (!isNaN(weightVal)) {
+        totalWeight += weightVal;
+      }
+
+      allImageUrls.push(...item.imageUrls);
+
+      let itemDesc = `${index + 1}. ${item.description || "Item"}`;
+      if (item.pickupAddress && item.pickupAddress.trim() !== "") {
+        itemDesc += ` (Pickup: ${item.pickupAddress})`;
+      }
+      if (item.weight) {
+        itemDesc += ` - ${item.weight}kg`;
+      }
+      descriptionParts.push(itemDesc);
+    });
+
+    const finalDescription = descriptionParts.join("\n");
+
+    const orderPayload = {
+      ...newOrder,
+      description: finalDescription,
+      packageWeight: totalWeight,
+      productImageUrls: allImageUrls,
+    };
+
+    try {
+      const response: any = await ordersAPI.create(orderPayload);
+      if (response && response.success) {
+        toast.success("Order created successfully!");
+        setIsNewOrderOpen(false);
+        setNewOrder({
+          pickupAddress: "",
+          deliveryAddress: "",
+          transportMethodId: "",
+        });
+        setItems([
+          {
+            id: Date.now().toString(),
+            description: "",
+            pickupAddress: "",
+            weight: "",
+            imageUrls: [],
+            imagePreviews: [],
+            isUploading: false,
+          },
+        ]);
+        fetchOrders();
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Failed to create order");
+    }
+  };
+
+  const handleUpdateStatus = async (orderId: string, newStatus: string) => {
+    try {
+      const response: any = await ordersAPI.updateStatus(orderId, newStatus);
+      if (response && response.success) {
+        toast.success(`Order status updated to ${newStatus}`);
+        fetchOrders();
+        if (selectedOrder?.id === orderId) {
+          setSelectedOrder(null);
+        }
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update status");
+    }
+  };
+
+  const handleConfirmPaymentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedOrder) return;
+
+    try {
+      const response: any = await ordersAPI.confirmPayment(
+        selectedOrder.id,
+        paymentData.method,
+        parseFloat(paymentData.amount)
+      );
+
+      if (response && response.success) {
+        toast.success("Payment confirmed successfully!");
+        setIsConfirmPaymentOpen(false);
+        setSelectedOrder(null);
+        fetchOrders();
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Failed to confirm payment");
+    }
+  };
+
+  const openConfirmPayment = (order: Order) => {
+    setSelectedOrder(order);
+    setPaymentData({
+      amount: order.estimatedCost?.toString() || "",
+      method: "M_PESA"
+    });
+    setIsConfirmPaymentOpen(true);
+  };
+
+  const openPaymentModal = (order: Order) => {
+    if (!order.actualCost || order.actualCost === 0) {
+      if (order.isVerified) {
+        toast.success("Product verified! We are finalizing the cost. Please check back in a moment to complete your payment.", { duration: 6000 });
+        return;
+      }
+
+      let message = "Thank you, your order was placed successfully.";
+
+      if (!order.agent) {
+        message += " Your order is being processed. An agent will be assigned to you shortly.";
+      } else {
+        const agentName = order.agent.user.fullName;
+        const agentPhone = order.agent.user.phone;
+
+        if (agentPhone) {
+          message += ` Please initialize a chat with the agent or contact the agent at ${agentPhone}`;
+        } else {
+          message += ` Please use the chat to contact your assigned agent, ${agentName}.`;
+        }
+      }
+
+      toast.success(message, { duration: 6000 });
+      return;
+    }
+    setSelectedOrder(order);
+    setIsPaymentOpen(true);
+  };
+
+  const filteredOrders = orders.filter(order => {
+    const matchesSearch =
+      order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      order.pickupAddress.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      order.deliveryAddress.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      order.customer.fullName.toLowerCase().includes(searchQuery.toLowerCase());
+
+    return searchQuery ? matchesSearch : true;
+  });
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Orders Management</h1>
+          <p className="text-muted-foreground">
+            {isAdmin ? "Manage all orders" : isAgent ? "View assigned orders" : "Track your orders"}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={fetchOrders}>
+            <RefreshCw className="w-4 h-4" />
+          </Button>
+          {!isAdmin && !isAgent && (
+            <Button variant="hero" onClick={() => setIsNewOrderOpen(true)}>
+              <Plus className="w-4 h-4" />
+              New Order
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Search orders..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-full sm:w-[180px]">
+            <SelectValue placeholder="Filter by status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Orders</SelectItem>
+            <SelectItem value="PLACED">Pending</SelectItem>
+            <SelectItem value="ASSIGNED">Assigned</SelectItem>
+            <SelectItem value="IN_TRANSIT">In Transit</SelectItem>
+            <SelectItem value="DELIVERED">Delivered</SelectItem>
+            <SelectItem value="COMPLETED">Completed</SelectItem>
+            <SelectItem value="CANCELLED">Cancelled</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Orders Table */}
+      <div className="bg-card rounded-2xl border border-border overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-border bg-muted/50">
+                <th className="text-left px-6 py-4 text-sm font-semibold">Order #</th>
+                {isAdmin && <th className="text-left px-6 py-4 text-sm font-semibold">Customer</th>}
+                <th className="text-left px-6 py-4 text-sm font-semibold">Route</th>
+                <th className="text-left px-6 py-4 text-sm font-semibold">Status</th>
+                <th className="text-left px-6 py-4 text-sm font-semibold">Amount</th>
+                <th className="text-left px-6 py-4 text-sm font-semibold">Date</th>
+                <th className="text-right px-6 py-4 text-sm font-semibold">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-12 text-center text-muted-foreground">
+                    Loading orders...
+                  </td>
+                </tr>
+              ) : filteredOrders.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-12 text-center text-muted-foreground">
+                    <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p>No orders found</p>
+                  </td>
+                </tr>
+              ) : (
+                filteredOrders.map((order) => (
+                  <tr key={order.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+                    <td className="px-6 py-4">
+                      <span className="font-semibold text-foreground">{order.orderNumber}</span>
+                    </td>
+                    {isAdmin && (
+                      <td className="px-6 py-4">
+                        <div>
+                          <p className="text-sm font-medium">{order.customer.fullName}</p>
+                          <p className="text-xs text-muted-foreground">{order.customer.phone || order.customer.email}</p>
+                        </div>
+                      </td>
+                    )}
+                    <td className="px-6 py-4">
+                      <div className="max-w-[200px]">
+                        <p className="text-sm text-foreground truncate">{order.pickupAddress}</p>
+                        <p className="text-xs text-muted-foreground truncate">→ {order.deliveryAddress}</p>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <OrderStatusBadge status={order.status.toLowerCase() as any} />
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">
+                          {order.actualCost ? (
+                            `TSh ${order.actualCost.toLocaleString()}`
+                          ) : order.estimatedCost && order.estimatedCost > 0 ? (
+                            `TSh ${order.estimatedCost.toLocaleString()}`
+                          ) : (
+                            <span className="text-muted-foreground italic">Pending</span>
+                          )}
+                        </span>
+                        {order.actualCost && order.estimatedCost && order.actualCost !== order.estimatedCost && (
+                          <span className="text-[10px] text-muted-foreground line-through">
+                            Est: TSh {order.estimatedCost.toLocaleString()}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-sm text-muted-foreground">
+                        {(() => {
+                          try {
+                            return order.placedAt
+                              ? formatDistanceToNow(new Date(order.placedAt), { addSuffix: true })
+                              : "N/A";
+                          } catch (e) {
+                            return "Invalid Date";
+                          }
+                        })()}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex justify-end gap-2">
+                        {isCustomer && order.paymentStatus === "PENDING" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8"
+                            onClick={() => openPaymentModal(order)}
+                          >
+                            <CreditCard className="w-3 h-3 mr-1" />
+                            Pay
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setSelectedOrder(order)}
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleOpenChat(order.id)}
+                        >
+                          <MessageSquare className="w-4 h-4" />
+                        </Button>
+                        {order.status === "COMPLETED" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 border-secondary text-secondary hover:bg-secondary hover:text-white"
+                            onClick={() => {
+                              setSelectedOrder(order);
+                              setShowReceipt(true);
+                              toast.info("Downloading receipt...");
+                            }}
+                          >
+                            <Printer className="w-3 h-3 mr-1" />
+                            Receipt
+                          </Button>
+                        )}
+                        {isAdmin && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => handleDeleteOrder(order.id)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex justify-center mt-6">
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                  className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                />
+              </PaginationItem>
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                // Show first, last, current, and pages around current
+                if (
+                  page === 1 ||
+                  page === totalPages ||
+                  (page >= currentPage - 1 && page <= currentPage + 1)
+                ) {
+                  return (
+                    <PaginationItem key={page}>
+                      <PaginationLink
+                        onClick={() => setCurrentPage(page)}
+                        isActive={currentPage === page}
+                        className="cursor-pointer"
+                      >
+                        {page}
+                      </PaginationLink>
+                    </PaginationItem>
+                  );
+                } else if (
+                  (page === currentPage - 2 && page > 1) ||
+                  (page === currentPage + 2 && page < totalPages)
+                ) {
+                  return (
+                    <PaginationItem key={page}>
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  );
+                }
+                return null;
+              })}
+
+              <PaginationItem>
+                <PaginationNext
+                  onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                  className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+      )}
+
+      {/* New Order Modal */}
+      <Dialog open={isNewOrderOpen} onOpenChange={setIsNewOrderOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create New Order</DialogTitle>
+            <DialogDescription>
+              Fill in the details below to create a new delivery order.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleCreateOrder} className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Pickup Address</label>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Enter pickup location"
+                  value={newOrder.pickupAddress}
+                  onChange={(e) => setNewOrder({ ...newOrder, pickupAddress: e.target.value })}
+                  required
+                />
+                <Button type="button" variant="outline" size="icon" onClick={() => openMapFor("pickup")}>
+                  <MapPin className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Delivery Address</label>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Enter delivery location"
+                  value={newOrder.deliveryAddress}
+                  onChange={(e) => setNewOrder({ ...newOrder, deliveryAddress: e.target.value })}
+                  required
+                />
+                <Button type="button" variant="outline" size="icon" onClick={() => openMapFor("delivery")}>
+                  <MapPin className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Transport Method</label>
+              <Select
+                value={newOrder.transportMethodId}
+                onValueChange={(value) => setNewOrder({ ...newOrder, transportMethodId: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select transport method" />
+                </SelectTrigger>
+                <SelectContent>
+                  {transportMethods.map((method) => (
+                    <SelectItem key={method.id} value={method.id}>
+                      {method.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+              {items.map((item, index) => (
+                <div key={item.id} className="p-4 border border-border rounded-xl space-y-3 bg-muted/30">
+                  <div className="flex justify-between items-center">
+                    <h4 className="text-sm font-semibold">Item {index + 1}</h4>
+                    {items.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => handleRemoveItem(item.id)}
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Description</label>
+                    <Input
+                      placeholder="Item description (e.g., Red Box)"
+                      value={item.description}
+                      onChange={(e) => handleItemChange(item.id, "description", e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">
+                      Pickup Location <span className="text-muted-foreground font-normal">(Optional if same as main pickup)</span>
+                    </label>
+                    <Input
+                      placeholder="Specific pickup location for this item"
+                      value={item.pickupAddress}
+                      onChange={(e) => handleItemChange(item.id, "pickupAddress", e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Weight (kg)</label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.1"
+                      value={item.weight}
+                      onChange={(e) => handleItemChange(item.id, "weight", e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Images</label>
+                    <div className="flex flex-col gap-2">
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={(e) => handleImageUpload(e, item.id)}
+                        className="cursor-pointer"
+                      />
+                      {item.imagePreviews.length > 0 && (
+                        <div className="grid grid-cols-3 gap-2 mt-2">
+                          {item.imagePreviews.map((preview, idx) => (
+                            <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-border">
+                              <img src={preview} alt={`Preview ${idx}`} className="w-full h-full object-cover" />
+                              {item.isUploading && (
+                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                  <RefreshCw className="w-4 h-4 text-white animate-spin" />
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              <Button type="button" variant="outline" onClick={handleAddItem} className="w-full border-dashed">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Another Item
+              </Button>
+            </div>
+            <Button type="submit" variant="hero" className="w-full" disabled={items.some(i => i.isUploading)}>
+              Create Order
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Order Detail Modal */}
+      <Dialog
+        open={!!selectedOrder && !isConfirmPaymentOpen && !isPaymentOpen}
+        onOpenChange={(open) => !open && setSelectedOrder(null)}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Order Details</DialogTitle>
+            <DialogDescription>
+              View and manage the details of this order.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedOrder && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-lg font-bold">{selectedOrder.orderNumber}</span>
+                  <div className="flex gap-2 mt-2">
+                    <OrderStatusBadge status={selectedOrder.status.toLowerCase() as any} />
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${selectedOrder.paymentStatus === "CONFIRMED"
+                      ? "bg-success/10 text-success border border-success/20"
+                      : "bg-amber/10 text-amber border border-amber/20"
+                      }`}>
+                      {selectedOrder.paymentStatus}
+                    </span>
+                    {selectedOrder.isVerified && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-blue-500/10 text-blue-500 border border-blue-500/20">
+                        VERIFIED
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {(isAdmin || isAgent) && selectedOrder.status !== "COMPLETED" && (
+                  <Select onValueChange={(val) => handleUpdateStatus(selectedOrder.id, val)}>
+                    <SelectTrigger className="h-9 w-[140px]">
+                      <SelectValue placeholder="Update Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PLACED">Pending</SelectItem>
+                      <SelectItem value="ASSIGNED">Assigned</SelectItem>
+                      <SelectItem value="PICKED">Picked Up</SelectItem>
+                      <SelectItem value="IN_TRANSIT">In Transit</SelectItem>
+                      <SelectItem value="DELIVERED">Delivered</SelectItem>
+                      <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+
+              <div className="space-y-4">
+                <div className="p-4 bg-muted/50 rounded-xl">
+                  <h4 className="text-sm font-medium text-muted-foreground mb-2">Route</h4>
+                  <div className="flex items-start gap-2">
+                    <MapPin className="w-4 h-4 text-muted-foreground mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">From: {selectedOrder.pickupAddress}</p>
+                      <p className="text-sm font-medium mt-1">To: {selectedOrder.deliveryAddress}</p>
+                    </div>
+                  </div>
+                  {selectedOrder.description && (
+                    <p className="text-sm text-muted-foreground mt-2">{selectedOrder.description}</p>
+                  )}
+                  {selectedOrder.transportMethod && (
+                    <p className="text-sm font-medium mt-2 flex items-center gap-2">
+                      <Package className="w-4 h-4" />
+                      Via {selectedOrder.transportMethod.name}
+                    </p>
+                  )}
+                  {selectedOrder.productImageUrls && selectedOrder.productImageUrls.length > 0 && (
+                    <div className="mt-4">
+                      <p className="text-sm font-medium text-muted-foreground mb-2">Product Images</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {selectedOrder.productImageUrls.map((url, index) => (
+                          <div key={index} className="relative aspect-square rounded-xl overflow-hidden border border-border">
+                            <img
+                              src={`http://localhost:3000${url}`}
+                              alt={`Product ${index}`}
+                              className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform"
+                              onClick={() => window.open(`http://localhost:3000${url}`, '_blank')}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 bg-muted/50 rounded-xl">
+                    <h4 className="text-sm font-medium text-muted-foreground mb-1">Estimated Cost</h4>
+                    <p className="text-lg font-bold">
+                      {selectedOrder.estimatedCost && selectedOrder.estimatedCost > 0
+                        ? `TSh ${selectedOrder.estimatedCost.toLocaleString()}`
+                        : <span className="text-muted-foreground italic font-normal">Pending</span>}
+                    </p>
+                  </div>
+                  <div className="p-4 bg-muted/50 rounded-xl">
+                    <h4 className="text-sm font-medium text-muted-foreground mb-1">Actual Cost</h4>
+                    {(isAdmin || isAgent) && selectedOrder.status !== "COMPLETED" && selectedOrder.status !== "CANCELLED" ? (
+                      <div className="flex gap-2">
+                        <Input
+                          type="number"
+                          placeholder="Enter amount"
+                          defaultValue={selectedOrder.actualCost || ""}
+                          className="h-8 text-sm"
+                          onBlur={async (e) => {
+                            const val = parseFloat(e.target.value);
+                            if (!isNaN(val) && val !== selectedOrder.actualCost) {
+                              try {
+                                await ordersAPI.update(selectedOrder.id, { actualCost: val });
+                                toast.success("Actual cost updated");
+                                fetchOrders();
+                                setSelectedOrder({ ...selectedOrder, actualCost: val });
+                              } catch (err) {
+                                toast.error("Failed to update cost");
+                              }
+                            }
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <p className="text-lg font-bold text-secondary">
+                        {selectedOrder.actualCost
+                          ? `TSh ${selectedOrder.actualCost.toLocaleString()}`
+                          : "Pending"}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {selectedOrder.agent && (
+                  <div className="p-4 bg-muted/50 rounded-xl">
+                    <h4 className="text-sm font-medium text-muted-foreground mb-1">Assigned Agent</h4>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium">{selectedOrder.agent.user.fullName}</p>
+                        {selectedOrder.agent.user.phone && (
+                          <p className="text-xs text-muted-foreground">{selectedOrder.agent.user.phone}</p>
+                        )}
+                      </div>
+                      {selectedOrder.agent.user.phone && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8"
+                          onClick={() => window.open(`tel:${selectedOrder.agent?.user.phone}`, '_self')}
+                        >
+                          Call Agent
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {(isAdmin || isAgent) && !selectedOrder.isVerified && (
+                  <Button
+                    variant="hero"
+                    className="w-full bg-blue-600 hover:bg-blue-700"
+                    onClick={() => handleVerifyOrder(selectedOrder.id)}
+                  >
+                    Verify Product
+                  </Button>
+                )}
+
+                {(isAdmin || isAgent) && selectedOrder.paymentStatus === "PENDING" && selectedOrder.actualCost && (
+                  <Button
+                    variant="hero"
+                    className="w-full"
+                    onClick={() => openConfirmPayment(selectedOrder)}
+                  >
+                    Confirm Payment
+                  </Button>
+                )}
+
+                {isCustomer && selectedOrder.paymentStatus === "PENDING" && (
+                  <Button
+                    variant="hero"
+                    className="w-full"
+                    onClick={() => openPaymentModal(selectedOrder)}
+                  >
+                    Pay Now
+                  </Button>
+                )}
+
+                <div className="text-xs text-muted-foreground pt-4 border-t">
+                  Created: {(() => {
+                    try {
+                      return selectedOrder.placedAt
+                        ? format(new Date(selectedOrder.placedAt), "PPpp")
+                        : "N/A";
+                    } catch (e) {
+                      return "Invalid Date";
+                    }
+                  })()}
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment QR Modal (Customer) */}
+      <Dialog open={isPaymentOpen} onOpenChange={setIsPaymentOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Make Payment</DialogTitle>
+            <DialogDescription>
+              Scan a QR code or use the Lipa Number to pay for Order #{selectedOrder?.orderNumber}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid md:grid-cols-2 gap-6 max-h-[60vh] overflow-y-auto p-2">
+            {paymentQRs.length === 0 ? (
+              <div className="col-span-full text-center py-8 text-muted-foreground">
+                No payment methods available at the moment. Please contact support.
+              </div>
+            ) : (
+              paymentQRs.map((qr) => (
+                <div key={qr.id} className="bg-card border border-border rounded-xl p-4 flex flex-col items-center text-center">
+                  <h3 className="font-bold mb-1">{qr.provider.replace('_', ' ')}</h3>
+                  <p className="text-sm text-muted-foreground mb-3">{qr.accountName}</p>
+                  <div className="bg-white p-2 rounded-lg border border-border mb-3">
+                    <img
+                      src={`http://localhost:3000${qr.qrCodeUrl}`}
+                      alt={qr.provider}
+                      className="w-32 h-32 object-contain"
+                    />
+                  </div>
+                  {qr.lipaNumber && (
+                    <div className="bg-muted/50 w-full py-2 rounded-lg">
+                      <p className="text-xs text-muted-foreground">Lipa Number</p>
+                      <p className="font-mono font-bold text-lg">{qr.lipaNumber}</p>
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+          <div className="bg-muted/30 p-4 rounded-lg text-sm text-muted-foreground">
+            <p className="font-medium text-foreground mb-1">Instructions:</p>
+            <ol className="list-decimal list-inside space-y-1">
+              <li>Choose your preferred payment provider above.</li>
+              <li>Scan the QR code or use the Lipa Number.</li>
+              <li>Enter the exact amount: <span className="font-bold text-foreground">TSh {(selectedOrder?.actualCost || 0).toLocaleString()}</span></li>
+              <li>Complete the transaction on your phone.</li>
+              <li>Wait for the agent to confirm your payment.</li>
+            </ol>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirm Payment Modal (Agent/Admin) */}
+      <Dialog open={isConfirmPaymentOpen} onOpenChange={setIsConfirmPaymentOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Confirm Payment</DialogTitle>
+            <DialogDescription>
+              Record payment details for Order #{selectedOrder?.orderNumber}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleConfirmPaymentSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Payment Method</label>
+              <Select
+                value={paymentData.method}
+                onValueChange={(val) => setPaymentData({ ...paymentData, method: val })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select method" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="M_PESA">M-Pesa</SelectItem>
+                  <SelectItem value="TIGO_PESA">Tigo Pesa</SelectItem>
+                  <SelectItem value="SELCOM">Selcom</SelectItem>
+                  <SelectItem value="RIPA">RIPA</SelectItem>
+                  <SelectItem value="CASH">Cash</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Amount Received (TZS)</label>
+              <div className="relative">
+                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  type="number"
+                  className="pl-9"
+                  value={paymentData.amount}
+                  onChange={(e) => setPaymentData({ ...paymentData, amount: e.target.value })}
+                  required
+                />
+              </div>
+            </div>
+            <Button type="submit" variant="hero" className="w-full">
+              Confirm Payment
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Map Selection Modal */}
+      <Dialog open={isMapOpen} onOpenChange={setIsMapOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Select {selectingField === "pickup" ? "Pickup" : "Delivery"} Location</DialogTitle>
+            <DialogDescription>
+              Click on the map to select the exact location. You can also search for a place.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4">
+            <LocationPicker
+              onLocationSelect={handleLocationSelect}
+              restrictToKariakoo={selectingField === "pickup"}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+      {activeChatId && (
+        <ChatWindow
+          chatId={activeChatId}
+          onClose={() => setActiveChatId(null)}
+        />
+      )}
+      {showReceipt && selectedOrder && (
+        <OrderReceipt
+          order={selectedOrder}
+          onClose={() => {
+            setShowReceipt(false);
+            setSelectedOrder(null);
+          }}
+          autoDownload={true}
+        />
+      )}
+    </div>
+  );
+};
+
+export default DashboardOrders;
