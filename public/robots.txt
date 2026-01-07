@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /dashboard/
 
-Sitemap: https://mhemaexpress.co.tz/sitemap.xml
+Sitemap: https://mhemalogistics.co.tz/sitemap.xml
