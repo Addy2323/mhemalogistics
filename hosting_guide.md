@@ -72,11 +72,13 @@ DATABASE_URL="postgresql://mhema_user:your_secure_password@localhost:5432/mhema_
 JWT_SECRET="your_random_secret_key"
 PORT=5000
 NODE_ENV=production
+FRONTEND_URL="https://mhemalogistics.co.tz"
 ```
 
 ### Install and Start
 ```bash
 npm install
+mkdir -p uploads/avatars
 npx prisma generate
 npx prisma db push
 pm2 start src/index.js --name "mhema-backend"
@@ -148,6 +150,13 @@ server {
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "Upgrade";
+        proxy_set_header Host $host;
+    }
+
+    # Uploads
+    location /uploads/ {
+        proxy_pass http://localhost:5000/uploads/;
+        proxy_http_version 1.1;
         proxy_set_header Host $host;
     }
 }
