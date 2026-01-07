@@ -69,13 +69,7 @@ const DashboardSidebar = () => {
       path: "/dashboard/transport",
       roles: ["ADMIN"]
     },
-    {
-      icon: LogOut,
-      label: t("dashboard.sidebar.logout"),
-      path: "#",
-      action: logout,
-      roles: ["ADMIN", "AGENT", "CUSTOMER"]
-    },
+
   ];
 
   const filteredItems = menuItems.filter(item => item.roles.includes(user?.role || "CUSTOMER"));
