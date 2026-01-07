@@ -11,13 +11,25 @@ const Index = () => {
   return (
     <>
       <Helmet>
-        <title>MHEMA EXPRESS | Trusted Kariakoo Logistics & Delivery</title>
-        <meta 
-          name="description" 
-          content="MHEMA EXPRESS - Your trusted partner for Kariakoo shopping. We collect, verify quality, and deliver goods across Tanzania. No scams, just trusted service." 
+        <title>MHEMA EXPRESS | Trusted Kariakoo Logistics & Delivery in Tanzania</title>
+        <meta
+          name="description"
+          content="MHEMA EXPRESS - Your trusted partner for Kariakoo shopping. We collect, verify quality, and deliver goods across Tanzania. No scams, just trusted service."
         />
-        <meta name="keywords" content="Kariakoo, logistics, delivery, Tanzania, Dar es Salaam, quality verification, trusted shopping" />
+        <meta name="keywords" content="Kariakoo, logistics, delivery, Tanzania, Dar es Salaam, quality verification, trusted shopping, cargo, shipping" />
         <link rel="canonical" href="https://mhemaexpress.co.tz" />
+
+        {/* Open Graph / Facebook */}
+        <meta property="og:type" content="website" />
+        <meta property="og:title" content="MHEMA EXPRESS | Trusted Kariakoo Logistics & Delivery" />
+        <meta property="og:description" content="Your trusted partner for Kariakoo shopping. We collect, verify quality, and deliver goods across Tanzania." />
+        <meta property="og:image" content="https://mhemaexpress.co.tz/og-image.png" />
+
+        {/* Twitter */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="MHEMA EXPRESS | Trusted Kariakoo Logistics & Delivery" />
+        <meta name="twitter:description" content="Your trusted partner for Kariakoo shopping. We collect, verify quality, and deliver goods across Tanzania." />
+        <meta name="twitter:image" content="https://mhemaexpress.co.tz/og-image.png" />
       </Helmet>
 
       <div className="min-h-screen bg-background">

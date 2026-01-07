@@ -137,7 +137,7 @@ const Contact = () => {
             </div>
 
             <p className="text-center text-sm text-muted-foreground mt-6">
-              {t("contact.cta.help")} <button onClick={handleWhatsApp} className="font-semibold text-secondary hover:underline">{t("contact.cta.chat")}</button>
+              {t("contact.cta.help")} <button onClick={handleWhatsApp} className="font-semibold text-secondary hover:underline" aria-label="Chat with us on WhatsApp">{t("contact.cta.chat")}</button>
             </p>
           </div>
         </div>

@@ -95,6 +95,7 @@ const Services = () => {
               <a
                 href="#contact"
                 className="relative z-10 inline-flex items-center gap-2 text-sm font-semibold text-secondary hover:text-amber-dark transition-all duration-300 group/link"
+                aria-label={`${t("services.learnMore")} about ${service.title}`}
               >
                 {t("services.learnMore")}
                 <ArrowRight className="w-4 h-4 group-hover/link:translate-x-2 transition-transform duration-300" />
