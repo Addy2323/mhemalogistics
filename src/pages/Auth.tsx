@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,10 @@ import { Package, Mail, Lock, User, ArrowLeft, Eye, EyeOff } from "lucide-react"
 
 const Auth = () => {
   const { t } = useTranslation();
-  const [isLogin, setIsLogin] = useState(true);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const mode = searchParams.get("mode");
+  const isLogin = mode !== "register";
+
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
@@ -23,6 +26,10 @@ const Auth = () => {
   const { login, register } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const toggleMode = () => {
+    setSearchParams({ mode: isLogin ? "register" : "login" });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,6 +68,7 @@ const Auth = () => {
       <Helmet>
         <title>{isLogin ? "Login" : "Register"} | MHEMA EXPRESS</title>
         <meta name="description" content={isLogin ? "Login to your MHEMA EXPRESS account to manage your orders and deliveries." : "Create a MHEMA EXPRESS account to start shipping from Kariakoo with ease."} />
+        <link rel="canonical" href={`https://mhemalogistics.co.tz/auth?mode=${isLogin ? 'login' : 'register'}`} />
       </Helmet>
       <div className="min-h-screen w-full bg-background flex flex-col lg:flex-row overflow-y-auto">
         {/* Left Panel - Branding */}
@@ -199,7 +207,7 @@ const Auth = () => {
                 {isLogin ? t("auth.noAccount") : t("auth.haveAccount")}{" "}
                 <button
                   type="button"
-                  onClick={() => setIsLogin(!isLogin)}
+                  onClick={toggleMode}
                   className="text-secondary font-semibold hover:underline"
                 >
                   {isLogin ? t("auth.signUp") : t("auth.signIn")}

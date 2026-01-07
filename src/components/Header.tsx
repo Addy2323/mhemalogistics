@@ -61,7 +61,7 @@ const Header = () => {
                 </Button>
               </Link>
             ) : (
-              <Link to="/auth">
+              <Link to="/auth?mode=login">
                 <Button variant="hero" size="sm" className="hover-glow">
                   {t("nav.login")}
                 </Button>
@@ -110,7 +110,7 @@ const Header = () => {
                     </Button>
                   </Link>
                 ) : (
-                  <Link to="/auth">
+                  <Link to="/auth?mode=login">
                     <Button variant="hero" className="w-full">
                       {t("nav.login")}
                     </Button>
