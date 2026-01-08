@@ -22,3 +22,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+ 
+ # Security
+ .env
+ .env.*
+ !.env.example
+ github_pat_*
+ id_rsa*
+ *.pub
