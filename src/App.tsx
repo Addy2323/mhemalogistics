@@ -18,6 +18,7 @@ import DashboardProfile from "./pages/dashboard/DashboardProfile";
 import DashboardAnalytics from "./pages/dashboard/DashboardAnalytics";
 import DashboardPaymentSettings from "./pages/dashboard/DashboardPaymentSettings";
 import DashboardTransportSettings from "./pages/dashboard/DashboardTransportSettings";
+import DashboardSettings from "./pages/dashboard/DashboardSettings";
 import NotFound from "./pages/NotFound";
 import StartupLoader from "./components/StartupLoader";
 import { useState, useEffect } from "react";
@@ -55,6 +56,7 @@ const App = () => {
                       <Route path="agents" element={<DashboardAgents />} />
                       <Route path="analytics" element={<DashboardAnalytics />} />
                       <Route path="profile" element={<DashboardProfile />} />
+                      <Route path="settings" element={<DashboardSettings />} />
                       <Route path="payments" element={<DashboardPaymentSettings />} />
                       <Route path="transport" element={<DashboardTransportSettings />} />
                     </Route>
