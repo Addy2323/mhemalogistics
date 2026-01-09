@@ -39,12 +39,22 @@ const DashboardPaymentSettings = () => {
         provider: "",
         accountName: "",
         lipaNumber: "",
-        file: null as File | null
+        file: null as File | null,
+        previewUrl: ""
     });
 
     useEffect(() => {
         fetchQRCodes();
     }, []);
+
+    // Cleanup preview URL on unmount or when file changes
+    useEffect(() => {
+        return () => {
+            if (newQR.previewUrl) {
+                URL.revokeObjectURL(newQR.previewUrl);
+            }
+        };
+    }, [newQR.previewUrl]);
 
     const fetchQRCodes = async () => {
         try {
@@ -62,7 +72,16 @@ const DashboardPaymentSettings = () => {
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
-            setNewQR({ ...newQR, file: e.target.files[0] });
+            const file = e.target.files[0];
+            // Revoke old preview URL if it exists
+            if (newQR.previewUrl) {
+                URL.revokeObjectURL(newQR.previewUrl);
+            }
+            setNewQR({
+                ...newQR,
+                file,
+                previewUrl: URL.createObjectURL(file)
+            });
         }
     };
 
@@ -88,7 +107,8 @@ const DashboardPaymentSettings = () => {
                     provider: "",
                     accountName: "",
                     lipaNumber: "",
-                    file: null
+                    file: null,
+                    previewUrl: ""
                 });
                 fetchQRCodes();
             }
@@ -230,10 +250,22 @@ const DashboardPaymentSettings = () => {
                                     required
                                 />
                                 <div className="flex flex-col items-center gap-2">
-                                    <Upload className="w-8 h-8 text-muted-foreground" />
-                                    <span className="text-sm text-muted-foreground">
-                                        {newQR.file ? newQR.file.name : "Click to upload QR code image"}
-                                    </span>
+                                    {newQR.previewUrl ? (
+                                        <div className="relative w-full aspect-square max-h-[200px] flex items-center justify-center">
+                                            <img
+                                                src={newQR.previewUrl}
+                                                alt="Preview"
+                                                className="max-w-full max-h-full object-contain rounded-lg"
+                                            />
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <Upload className="w-8 h-8 text-muted-foreground" />
+                                            <span className="text-sm text-muted-foreground">
+                                                Click to upload QR code image
+                                            </span>
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         </div>
