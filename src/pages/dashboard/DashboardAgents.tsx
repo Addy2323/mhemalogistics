@@ -67,8 +67,6 @@ const DashboardAgents = () => {
 
     const isAdmin = user?.role === "ADMIN";
 
-    const serverUrl = API_HOST;
-
     const getInitials = (name: string) => {
         if (!name) return '?';
         return name
@@ -207,7 +205,7 @@ const DashboardAgents = () => {
                             <div className="flex items-start justify-between mb-4">
                                 <div className="flex items-center gap-3">
                                     <Avatar className="w-12 h-12 border border-border">
-                                        <AvatarImage src={agent.user.avatarUrl ? `${serverUrl}${agent.user.avatarUrl}` : undefined} className="object-cover" />
+                                        <AvatarImage src={agent.user.avatarUrl ? agent.user.avatarUrl.replace('/uploads/', '/api/uploads/') : undefined} className="object-cover" />
                                         <AvatarFallback className="text-lg font-bold bg-secondary text-secondary-foreground">
                                             {getInitials(agent.user.fullName)}
                                         </AvatarFallback>
@@ -383,7 +381,7 @@ const DashboardAgents = () => {
                         <div className="space-y-6">
                             <div className="flex items-center gap-3">
                                 <Avatar className="w-16 h-16 border border-border">
-                                    <AvatarImage src={selectedAgent.user.avatarUrl ? `${serverUrl}${selectedAgent.user.avatarUrl}` : undefined} className="object-cover" />
+                                    <AvatarImage src={selectedAgent.user.avatarUrl ? selectedAgent.user.avatarUrl.replace('/uploads/', '/api/uploads/') : undefined} className="object-cover" />
                                     <AvatarFallback className="text-2xl font-bold bg-secondary text-secondary-foreground">
                                         {getInitials(selectedAgent.user.fullName)}
                                     </AvatarFallback>

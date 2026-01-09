@@ -20,8 +20,6 @@ const ChatList = () => {
     const { user } = useAuth();
     const [chats, setChats] = useState<any[]>([]);
 
-    const serverUrl = API_HOST;
-
     const getInitials = (name: string) => {
         if (!name) return '?';
         return name
@@ -73,7 +71,7 @@ const ChatList = () => {
                         >
                             {(() => {
                                 const otherParticipant = chat.participants?.find((p: any) => p.user.id !== user?.id)?.user;
-                                const avatarSrc = otherParticipant?.avatarUrl ? `${serverUrl}${otherParticipant.avatarUrl}` : undefined;
+                                const avatarSrc = otherParticipant?.avatarUrl ? otherParticipant.avatarUrl.replace('/uploads/', '/api/uploads/') : undefined;
 
                                 return (
                                     <>

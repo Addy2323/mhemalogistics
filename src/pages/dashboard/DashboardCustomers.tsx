@@ -35,8 +35,6 @@ const DashboardCustomers = () => {
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [loading, setLoading] = useState(true);
 
-    const serverUrl = API_HOST;
-
     const getInitials = (name: string) => {
         if (!name) return '?';
         return name
@@ -129,7 +127,7 @@ const DashboardCustomers = () => {
                             <div className="flex justify-between items-start mb-4">
                                 <div className="flex items-center gap-3">
                                     <Avatar className="w-12 h-12 border border-border">
-                                        <AvatarImage src={customer.avatarUrl ? `${serverUrl}${customer.avatarUrl}` : undefined} className="object-cover" />
+                                        <AvatarImage src={customer.avatarUrl ? customer.avatarUrl.replace('/uploads/', '/api/uploads/') : undefined} className="object-cover" />
                                         <AvatarFallback className="text-lg font-bold bg-secondary text-secondary-foreground">
                                             {getInitials(customer.name)}
                                         </AvatarFallback>
