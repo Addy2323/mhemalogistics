@@ -74,7 +74,7 @@ const ProfilePictureUpload = () => {
             .substring(0, 2);
     };
 
-    const avatarSrc = user?.avatarUrl ? `${API_HOST}${user.avatarUrl}` : undefined;
+    const avatarSrc = user?.avatarUrl ? user.avatarUrl : undefined;
 
     return (
         <div className="relative group">
