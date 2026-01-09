@@ -176,7 +176,7 @@ const DashboardPaymentSettings = () => {
 
                             <div className="aspect-square bg-white rounded-lg p-4 mb-4 flex items-center justify-center border border-border/50">
                                 <img
-                                    src={qr.qrCodeUrl}
+                                    src={qr.qrCodeUrl.replace('/uploads/', '/api/uploads/')}
                                     alt={`${qr.provider} QR Code`}
                                     className="w-full h-full object-contain"
                                 />

@@ -28,7 +28,7 @@ const DashboardSidebar = () => {
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
 
-  const avatarSrc = user?.avatarUrl ? user.avatarUrl : undefined;
+  const avatarSrc = user?.avatarUrl ? user.avatarUrl.replace('/uploads/', '/api/uploads/') : undefined;
 
   const getInitials = (name: string) => {
     if (!name) return '?';

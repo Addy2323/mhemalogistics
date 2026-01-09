@@ -55,8 +55,8 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Static files for uploads
-app.use('/uploads', express.static(join(__dirname, '../uploads')));
+// Static files for uploads (served through API path for Nginx compatibility)
+app.use('/api/uploads', express.static(join(__dirname, '../uploads')));
 
 // Routes
 app.use('/api/auth', authRoutes);
