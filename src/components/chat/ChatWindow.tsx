@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Send, X, Paperclip, Loader2, Image as ImageIcon } from 'lucide-react';
-import apiClient, { ApiResponse } from '@/lib/api';
+import apiClient, { ApiResponse, getImageUrl } from '@/lib/api';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { API_HOST } from '@/config/api';
 import { toast } from 'sonner';
@@ -138,7 +138,7 @@ const ChatWindow = ({ chatId, onClose }: ChatWindowProps) => {
                 <div className="space-y-4">
                     {messages.map((msg) => {
                         const isMe = msg.senderId === user?.id;
-                        const avatarSrc = msg.sender?.avatarUrl ? msg.sender.avatarUrl.replace('/uploads/', '/api/uploads/') : undefined;
+                        const avatarSrc = getImageUrl(msg.sender?.avatarUrl);
 
                         return (
                             <div
@@ -167,10 +167,10 @@ const ChatWindow = ({ chatId, onClose }: ChatWindowProps) => {
                                         {msg.imageUrl && (
                                             <div className="mb-2 rounded-lg overflow-hidden border border-white/10">
                                                 <img
-                                                    src={msg.imageUrl.startsWith('http') ? msg.imageUrl : `${API_HOST}${msg.imageUrl}`}
+                                                    src={getImageUrl(msg.imageUrl)}
                                                     alt="Chat attachment"
                                                     className="max-w-full h-auto object-contain cursor-pointer hover:opacity-90 transition-opacity"
-                                                    onClick={() => window.open(msg.imageUrl.startsWith('http') ? msg.imageUrl : `${API_HOST}${msg.imageUrl}`, '_blank')}
+                                                    onClick={() => window.open(getImageUrl(msg.imageUrl), '_blank')}
                                                 />
                                             </div>
                                         )}

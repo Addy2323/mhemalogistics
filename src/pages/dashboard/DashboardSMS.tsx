@@ -284,16 +284,16 @@ const DashboardSMS = () => {
                                                 </td>
                                                 <td className="py-3">
                                                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${log.status === "SENT"
-                                                            ? "bg-success/10 text-success"
-                                                            : log.status === "FAILED"
-                                                                ? "bg-destructive/10 text-destructive"
-                                                                : "bg-muted text-muted-foreground"
+                                                        ? "bg-success/10 text-success"
+                                                        : log.status === "FAILED"
+                                                            ? "bg-destructive/10 text-destructive"
+                                                            : "bg-muted text-muted-foreground"
                                                         }`}>
                                                         {log.status}
                                                     </span>
                                                 </td>
                                                 <td className="py-3 text-muted-foreground">
-                                                    {format(new Error(log.createdAt).getTime() ? new Date(log.createdAt) : new Date(), "MMM d, HH:mm")}
+                                                    {format(!isNaN(new Date(log.createdAt).getTime()) ? new Date(log.createdAt) : new Date(), "MMM d, HH:mm")}
                                                 </td>
                                             </tr>
                                         ))

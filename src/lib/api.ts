@@ -12,6 +12,13 @@ export interface ApiResponse<T = any> {
 
 const API_BASE_URL = API_URL;
 
+export const getImageUrl = (url?: string) => {
+    if (!url) return undefined;
+    if (url.startsWith('http')) return url;
+    const path = url.startsWith('/uploads/') ? url.replace('/uploads/', '/api/uploads/') : url;
+    return `${API_URL.replace('/api', '')}${path}`;
+};
+
 // Create axios instance
 const instance = axios.create({
     baseURL: API_BASE_URL,
