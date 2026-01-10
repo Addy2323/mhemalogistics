@@ -223,7 +223,7 @@ router.post('/', authenticateToken, async (req, res) => {
         });
 
         // Check for high-value order (> 1,000,000 TZS)
-        if (estimatedCost > 1000000) {
+        if (order.estimatedCost > 1000000) {
             // Find all admins
             const admins = await prisma.user.findMany({
                 where: { role: 'ADMIN' },
@@ -231,15 +231,28 @@ router.post('/', authenticateToken, async (req, res) => {
             });
 
             // Create notifications for admins
-            if (admins.length > 0) {
+            const notificationData = admins.map(admin => ({
+                userId: admin.id,
+                type: 'ADMIN_ALERT',
+                title: 'High Value Order Alert',
+                message: `New high-value order #${orderNumber} placed. Value: TZS ${order.estimatedCost.toLocaleString()}`,
+                relatedOrderId: order.id
+            }));
+
+            // Also notify the assigned agent if any
+            if (assignment?.agentUserId) {
+                notificationData.push({
+                    userId: assignment.agentUserId,
+                    type: 'ADMIN_ALERT',
+                    title: 'High Value Order Alert',
+                    message: `New high-value order #${orderNumber} assigned to you. Value: TZS ${order.estimatedCost.toLocaleString()}`,
+                    relatedOrderId: order.id
+                });
+            }
+
+            if (notificationData.length > 0) {
                 await prisma.notification.createMany({
-                    data: admins.map(admin => ({
-                        userId: admin.id,
-                        type: 'ADMIN_ALERT',
-                        title: 'High Value Order Alert',
-                        message: `New high-value order #${orderNumber} placed. Value: TZS ${estimatedCost.toLocaleString()}`,
-                        relatedOrderId: order.id
-                    }))
+                    data: notificationData
                 });
             }
         }
@@ -598,6 +611,8 @@ router.post('/:id/payment-done', authenticateToken, async (req, res) => {
             return res.status(403).json({ error: { message: 'Access denied' } });
         }
 
+        const notificationMessage = `Customer ${order.customer.fullName} claims to have paid for Order #${order.orderNumber}. Awaiting agent confirmation.`;
+
         // Create notification for agent
         if (order.agent) {
             await prisma.notification.create({
@@ -605,7 +620,7 @@ router.post('/:id/payment-done', authenticateToken, async (req, res) => {
                     userId: order.agent.user.id,
                     type: 'PAYMENT_CONFIRMED',
                     title: 'Customer Claims Payment Made',
-                    message: `Customer ${order.customer.fullName} (${order.customer.phone || 'No phone'}) claims to have paid for Order #${order.orderNumber}. Please verify and confirm the payment.`,
+                    message: notificationMessage,
                     relatedOrderId: order.id
                 }
             });
@@ -622,7 +637,7 @@ router.post('/:id/payment-done', authenticateToken, async (req, res) => {
                     userId: admin.id,
                     type: 'PAYMENT_CONFIRMED',
                     title: 'Customer Claims Payment Made',
-                    message: `Customer ${order.customer.fullName} claims to have paid for Order #${order.orderNumber}. Awaiting agent confirmation.`,
+                    message: notificationMessage,
                     relatedOrderId: order.id
                 }
             });
