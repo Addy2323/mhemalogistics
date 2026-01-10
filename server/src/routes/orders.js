@@ -507,6 +507,9 @@ router.patch('/:id/payment', authenticateToken, authorize('AGENT', 'ADMIN'), asy
                 paymentConfirmedBy: req.user.id,
                 status: 'COMPLETED',
                 completedAt: new Date()
+            },
+            include: {
+                customer: { select: { fullName: true, phone: true } }
             }
         });
 
@@ -550,6 +553,14 @@ router.patch('/:id/payment', authenticateToken, authorize('AGENT', 'ADMIN'), asy
                 relatedOrderId: order.id
             }
         });
+
+        // Send SMS to customer when order is completed via payment confirmation
+        try {
+            await smsService.sendOrderCompletionSms(updatedOrder.customer, order);
+        } catch (smsError) {
+            console.error('SMS notification failed (non-blocking):', smsError.message);
+            // Don't throw - SMS failure shouldn't block payment confirmation
+        }
 
         // Process queue after agent completes order
         await orderDistribution.processQueue();
