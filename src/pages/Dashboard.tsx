@@ -52,7 +52,7 @@ const Dashboard = () => {
         {/* Main Content */}
         <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
           {/* Mobile Header */}
-          <header className="lg:hidden bg-card border-b border-border p-4 flex items-center justify-between gap-4">
+          <header className="lg:hidden bg-card border-t-4 border-t-[#f97316] border-b border-border p-4 flex items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <button
                 onClick={() => setSidebarOpen(true)}

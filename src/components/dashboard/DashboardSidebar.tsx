@@ -22,6 +22,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { API_HOST } from "@/config/api";
 import NotificationBell from "./NotificationBell";
 import ChatList from "../chat/ChatList";
+import AgentStatusToggle from "./AgentStatusToggle";
 
 
 const DashboardSidebar = () => {
@@ -139,6 +140,14 @@ const DashboardSidebar = () => {
             </div>
           )}
         </div>
+        {isAgent && user?.agent && !collapsed && (
+          <div className="mt-4">
+            <AgentStatusToggle
+              agentId={user.agent.id}
+              currentStatus={user.agent.availabilityStatus}
+            />
+          </div>
+        )}
       </div>
 
 
