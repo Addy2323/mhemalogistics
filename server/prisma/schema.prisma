@@ -309,3 +309,18 @@ model SystemSettings {
 
   @@map("system_settings")
 }
+
+model SmsLog {
+  id        String   @id @default(uuid())
+  phone     String
+  message   String
+  status    String   // SENT, FAILED, PENDING, DISABLED
+  provider  String   @default("beem")
+  error     String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([phone])
+  @@index([status])
+  @@index([createdAt])
+  @@map("sms_logs")
+}

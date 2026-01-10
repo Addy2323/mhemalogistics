@@ -18,6 +18,7 @@ import analyticsRoutes from './routes/analytics.js';
 import customerRoutes from './routes/customers.js';
 import chatRoutes from './routes/chat.js';
 import userRoutes from './routes/users.js';
+import smsRoutes from './routes/sms.js';
 
 
 // Load environment variables
@@ -69,6 +70,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/chats', chatRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/sms', smsRoutes);
 
 
 // Health check

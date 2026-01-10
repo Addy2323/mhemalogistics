@@ -4,6 +4,7 @@ import { authenticateToken, authorize } from '../middleware/auth.js';
 import orderDistribution from '../services/orderDistribution.js';
 import { v4 as uuidv4 } from 'uuid';
 import { createOrderChat } from '../services/chatService.js';
+import smsService from '../services/smsService.js';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -416,6 +417,16 @@ router.patch('/:id/status', authenticateToken, authorize('AGENT', 'ADMIN'), asyn
                 relatedOrderId: order.id
             }
         });
+
+        // Send SMS to customer when order is completed
+        if (status === 'COMPLETED') {
+            try {
+                await smsService.sendOrderCompletionSms(updatedOrder.customer, order);
+            } catch (smsError) {
+                console.error('SMS notification failed (non-blocking):', smsError.message);
+                // Don't throw - SMS failure shouldn't block order completion
+            }
+        }
 
         res.json({ success: true, data: updatedOrder });
     } catch (error) {

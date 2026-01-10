@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import smsService from './smsService.js';
 
 const prisma = new PrismaClient();
 
@@ -40,6 +41,21 @@ class OrderDistributionService {
 
             // Create notification for agent
             await this.createAssignmentNotification(agent.userId, orderId);
+
+            // Send SMS to agent
+            try {
+                const order = await prisma.order.findUnique({
+                    where: { id: orderId },
+                    select: { orderNumber: true, pickupAddress: true, deliveryAddress: true }
+                });
+
+                if (order) {
+                    await smsService.sendAgentAssignmentSms(agent, order);
+                }
+            } catch (smsError) {
+                console.error('SMS notification failed (non-blocking):', smsError.message);
+                // Don't throw - SMS failure shouldn't block order assignment
+            }
 
             console.log(`Order ${orderId} assigned to agent ${agent.id} (user: ${agent.user.fullName})`);
             return { agentId: agent.id, agentUserId: agent.userId, queued: false };
