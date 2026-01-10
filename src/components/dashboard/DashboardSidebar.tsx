@@ -12,7 +12,8 @@ import {
   CreditCard,
   ClipboardList,
   BarChart3,
-  ChevronLeft
+  ChevronLeft,
+  MessageSquare
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
@@ -69,7 +70,12 @@ const DashboardSidebar = () => {
       path: "/dashboard/transport",
       roles: ["ADMIN"]
     },
-
+    {
+      icon: MessageSquare,
+      label: "SMS Broadcast",
+      path: "/dashboard/sms",
+      roles: ["ADMIN"]
+    },
   ];
 
   const filteredItems = menuItems.filter(item => item.roles.includes(user?.role || "CUSTOMER"));

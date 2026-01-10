@@ -19,6 +19,7 @@ import DashboardAnalytics from "./pages/dashboard/DashboardAnalytics";
 import DashboardPaymentSettings from "./pages/dashboard/DashboardPaymentSettings";
 import DashboardTransportSettings from "./pages/dashboard/DashboardTransportSettings";
 import DashboardSettings from "./pages/dashboard/DashboardSettings";
+import DashboardSMS from "./pages/dashboard/DashboardSMS";
 import NotFound from "./pages/NotFound";
 import StartupLoader from "./components/StartupLoader";
 import { useState, useEffect } from "react";
@@ -59,6 +60,7 @@ const App = () => {
                       <Route path="settings" element={<DashboardSettings />} />
                       <Route path="payments" element={<DashboardPaymentSettings />} />
                       <Route path="transport" element={<DashboardTransportSettings />} />
+                      <Route path="sms" element={<DashboardSMS />} />
                     </Route>
                     <Route path="*" element={<NotFound />} />
                   </Routes>

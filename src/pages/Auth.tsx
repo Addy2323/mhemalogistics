@@ -21,6 +21,7 @@ const Auth = () => {
     name: "",
     email: "",
     password: "",
+    phone: "",
   });
 
   const { login, register } = useAuth();
@@ -50,7 +51,20 @@ const Auth = () => {
           setIsLoading(false);
           return;
         }
-        const result = await register(formData.name, formData.email, formData.password);
+
+        // Phone validation: must start with 255 or 7, no leading 0
+        const phoneRegex = /^(255|7)\d{8,9}$/;
+        if (!phoneRegex.test(formData.phone)) {
+          toast({
+            title: "Invalid Phone Number",
+            description: "Phone number must start with 255 or 7 (e.g., 255712345678 or 712345678)",
+            variant: "destructive"
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        const result = await register(formData.name, formData.email, formData.password, formData.phone);
         if (result.success) {
           toast({ title: t("auth.toasts.accountCreated"), description: t("auth.toasts.welcomeMhema") });
           navigate("/dashboard");
@@ -155,6 +169,31 @@ const Auth = () => {
                       className="pl-10 h-12"
                     />
                   </div>
+                </div>
+              )}
+
+              {!isLogin && (
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Phone Number (255... or 7...)</Label>
+                  <div className="relative">
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center text-muted-foreground font-bold text-xs">
+                      +
+                    </div>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      placeholder="255712345678 or 712345678"
+                      value={formData.phone}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '');
+                        if (val.startsWith('0')) return; // Prevent leading 0
+                        setFormData({ ...formData, phone: val });
+                      }}
+                      className="pl-10 h-12"
+                      required
+                    />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">Format: 2557XXXXXXXX or 7XXXXXXXX (No leading 0)</p>
                 </div>
               )}
 

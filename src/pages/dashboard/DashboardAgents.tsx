@@ -110,6 +110,13 @@ const DashboardAgents = () => {
     const handleCreateAgent = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
+            // Phone validation: must start with 255 or 7, no leading 0
+            const phoneRegex = /^(255|7)\d{8,9}$/;
+            if (!phoneRegex.test(newAgent.phone)) {
+                toast.error("Phone number must start with 255 or 7 (e.g., 255712345678 or 712345678)");
+                return;
+            }
+
             const response: any = await agentsAPI.create(newAgent);
             if (response && response.success) {
                 toast.success("Agent created successfully!");
@@ -347,11 +354,16 @@ const DashboardAgents = () => {
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Phone Number</label>
                             <Input
-                                placeholder="0700000000"
+                                placeholder="255712345678 or 712345678"
                                 value={newAgent.phone}
-                                onChange={(e) => setNewAgent({ ...newAgent, phone: e.target.value })}
+                                onChange={(e) => {
+                                    const val = e.target.value.replace(/\D/g, '');
+                                    if (val.startsWith('0')) return; // Prevent leading 0
+                                    setNewAgent({ ...newAgent, phone: val });
+                                }}
                                 required
                             />
+                            <p className="text-[10px] text-muted-foreground">Format: 2557XXXXXXXX or 7XXXXXXXX (No leading 0)</p>
                         </div>
                         <Button type="submit" variant="hero" className="w-full">
                             Create Agent
