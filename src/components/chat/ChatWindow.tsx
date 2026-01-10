@@ -4,10 +4,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Send, X } from 'lucide-react';
+import { Send, X, Paperclip, Loader2, Image as ImageIcon } from 'lucide-react';
 import apiClient, { ApiResponse } from '@/lib/api';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { API_HOST } from '@/config/api';
+import { toast } from 'sonner';
 
 import { format } from 'date-fns';
 
@@ -21,7 +22,9 @@ const ChatWindow = ({ chatId, onClose }: ChatWindowProps) => {
     const { user } = useAuth();
     const [messages, setMessages] = useState<any[]>([]);
     const [newMessage, setNewMessage] = useState('');
+    const [isUploading, setIsUploading] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         fetchMessages();
@@ -65,20 +68,51 @@ const ChatWindow = ({ chatId, onClose }: ChatWindowProps) => {
         }, 100);
     };
 
-    const handleSendMessage = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!newMessage.trim() || !socket) {
-            console.log('Cannot send message: socket is', !!socket, 'message is', !!newMessage.trim());
-            return;
-        }
+    const handleSendMessage = (e: React.FormEvent, imageUrl?: string) => {
+        if (e) e.preventDefault();
+        if (!newMessage.trim() && !imageUrl) return;
+        if (!socket) return;
 
-        console.log('Sending message:', { chatId, content: newMessage });
         socket.emit('send_message', {
             chatId,
-            content: newMessage
+            content: newMessage,
+            imageUrl
         });
 
         setNewMessage('');
+    };
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // 5MB Limit
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error("Image size must be less than 5MB");
+            return;
+        }
+
+        try {
+            setIsUploading(true);
+            const formData = new FormData();
+            formData.append('image', file);
+
+            const response = await apiClient.post<ApiResponse<{ imageUrl: string }>>('/chats/upload', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+
+            if (response.success) {
+                handleSendMessage(null as any, response.data.imageUrl);
+            } else {
+                toast.error("Failed to upload image");
+            }
+        } catch (error) {
+            console.error("Upload error:", error);
+            toast.error("An error occurred during upload");
+        } finally {
+            setIsUploading(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
     };
 
     const getInitials = (name: string) => {
@@ -130,6 +164,16 @@ const ChatWindow = ({ chatId, onClose }: ChatWindowProps) => {
                                             : 'bg-muted text-foreground rounded-tl-none'
                                             }`}
                                     >
+                                        {msg.imageUrl && (
+                                            <div className="mb-2 rounded-lg overflow-hidden border border-white/10">
+                                                <img
+                                                    src={msg.imageUrl.startsWith('http') ? msg.imageUrl : `${API_HOST}${msg.imageUrl}`}
+                                                    alt="Chat attachment"
+                                                    className="max-w-full h-auto object-contain cursor-pointer hover:opacity-90 transition-opacity"
+                                                    onClick={() => window.open(msg.imageUrl.startsWith('http') ? msg.imageUrl : `${API_HOST}${msg.imageUrl}`, '_blank')}
+                                                />
+                                            </div>
+                                        )}
                                         {msg.content}
                                     </div>
                                     <span className="text-[10px] text-muted-foreground mt-1 px-1">
@@ -144,15 +188,32 @@ const ChatWindow = ({ chatId, onClose }: ChatWindowProps) => {
                 </div>
             </ScrollArea>
 
-            <form onSubmit={handleSendMessage} className="p-3 border-t border-border flex gap-2">
+            <form onSubmit={handleSendMessage} className="p-3 border-t border-border flex gap-2 items-center">
+                <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                />
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 text-muted-foreground hover:text-primary"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={!isConnected || isUploading}
+                >
+                    {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
+                </Button>
                 <Input
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     placeholder={isConnected ? "Type a message..." : "Connecting..."}
                     className="flex-1 h-9"
-                    disabled={!isConnected}
+                    disabled={!isConnected || isUploading}
                 />
-                <Button type="submit" size="icon" className="h-9 w-9" disabled={!isConnected || !newMessage.trim()}>
+                <Button type="submit" size="icon" className="h-9 w-9" disabled={!isConnected || (!newMessage.trim() && !isUploading)}>
                     <Send className="w-4 h-4" />
                 </Button>
             </form>

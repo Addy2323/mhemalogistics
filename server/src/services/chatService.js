@@ -39,14 +39,15 @@ export const initializeSocket = (socketIo) => {
         socket.on('send_message', async (data) => {
             console.log(`Received send_message from ${socket.user.userId}:`, data);
             try {
-                const { chatId, content } = data;
+                const { chatId, content, imageUrl } = data;
 
                 // Save to database
                 const message = await prisma.chatMessage.create({
                     data: {
                         chatId,
                         senderId: socket.user.userId,
-                        content
+                        content,
+                        imageUrl
                     },
                     include: {
                         sender: {
