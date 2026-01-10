@@ -243,11 +243,15 @@ router.post('/', authenticateToken, async (req, res) => {
             }
         }
 
-        // Automatically assign order to agent
-        const assignment = await orderDistribution.assignOrder(order.id);
-
-        // Create chat room for the order
-        await createOrderChat(order.id, req.user.id, assignment?.agentUserId);
+        // Automatically assign order to agent and create chat
+        let assignment = { agentId: null, agentUserId: null, queued: false };
+        try {
+            assignment = await orderDistribution.assignOrder(order.id);
+            await createOrderChat(order.id, req.user.id, assignment?.agentUserId);
+        } catch (assignError) {
+            console.error('Order assignment/chat failed, but order was created:', assignError);
+            // We continue as the order is already created in the database
+        }
 
         // Fetch updated order with agent info
         const updatedOrder = await prisma.order.findUnique({
@@ -269,8 +273,8 @@ router.post('/', authenticateToken, async (req, res) => {
             success: true,
             data: updatedOrder,
             assignment: {
-                agentId: assignment.agentId,
-                queued: assignment.queued
+                agentId: assignment?.agentId,
+                queued: assignment?.queued
             }
         });
     } catch (error) {

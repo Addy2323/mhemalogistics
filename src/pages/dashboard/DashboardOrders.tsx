@@ -427,6 +427,7 @@ const DashboardOrders = () => {
       }
     } catch (error: any) {
       toast.error(error.message || "Failed to create order");
+      fetchOrders(); // Refresh anyway as the order might have been created before the error
     }
   };
 

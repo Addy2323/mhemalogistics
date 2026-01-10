@@ -82,6 +82,12 @@ class OrderDistributionService {
      * @returns {Promise<Object>} Selected agent
      */
     async selectNextAgent(agents) {
+        // Safety check: if systemSettings model is not yet in the generated Prisma client
+        if (!prisma.systemSettings) {
+            console.warn('Prisma systemSettings model not found. Please run "npx prisma generate". Falling back to first agent.');
+            return agents[0];
+        }
+
         // Get or create system settings
         let settings = await prisma.systemSettings.findUnique({
             where: { id: 'default' }
