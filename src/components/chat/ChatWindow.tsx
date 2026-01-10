@@ -104,7 +104,7 @@ const ChatWindow = ({ chatId, onClose }: ChatWindowProps) => {
                 <div className="space-y-4">
                     {messages.map((msg) => {
                         const isMe = msg.senderId === user?.id;
-                        const avatarSrc = msg.sender?.avatarUrl ? `${API_HOST}${msg.sender.avatarUrl}` : undefined;
+                        const avatarSrc = msg.sender?.avatarUrl ? msg.sender.avatarUrl.replace('/uploads/', '/api/uploads/') : undefined;
 
                         return (
                             <div

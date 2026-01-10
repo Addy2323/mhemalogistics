@@ -5,12 +5,9 @@ const prisma = new PrismaClient();
 /**
  * Order Distribution Service
  * Implements round-robin algorithm for distributing orders among online agents
+ * Uses database-persisted state to survive server restarts
  */
 class OrderDistributionService {
-    constructor() {
-        this.lastAssignedIndex = 0;
-    }
-
     /**
      * Assign an order to an agent using round-robin algorithm
      * @param {string} orderId - The order ID to assign
@@ -36,7 +33,7 @@ class OrderDistributionService {
             }
 
             // Select next agent in round-robin fashion
-            const agent = this.selectNextAgent(onlineAgents);
+            const agent = await this.selectNextAgent(onlineAgents);
 
             // Assign order to agent
             await this.assignToAgent(orderId, agent.id);
@@ -44,7 +41,7 @@ class OrderDistributionService {
             // Create notification for agent
             await this.createAssignmentNotification(agent.userId, orderId);
 
-            console.log(`Order ${orderId} assigned to agent ${agent.id}`);
+            console.log(`Order ${orderId} assigned to agent ${agent.id} (user: ${agent.user.fullName})`);
             return { agentId: agent.id, agentUserId: agent.userId, queued: false };
 
         } catch (error) {
@@ -55,6 +52,7 @@ class OrderDistributionService {
 
     /**
      * Get all available agents (online and under capacity)
+     * Sorted by createdAt for consistent round-robin order
      * @returns {Promise<Array>}
      */
     async getAvailableAgents() {
@@ -69,7 +67,7 @@ class OrderDistributionService {
                 user: true
             },
             orderBy: {
-                currentOrderCount: 'asc' // Prioritize agents with fewer orders
+                createdAt: 'asc' // Consistent ordering for round-robin
             }
         });
 
@@ -79,12 +77,42 @@ class OrderDistributionService {
 
     /**
      * Select next agent using round-robin algorithm
+     * Uses database-persisted lastAssignedAgentId
      * @param {Array} agents - Available agents
-     * @returns {Object} Selected agent
+     * @returns {Promise<Object>} Selected agent
      */
-    selectNextAgent(agents) {
-        this.lastAssignedIndex = (this.lastAssignedIndex + 1) % agents.length;
-        return agents[this.lastAssignedIndex];
+    async selectNextAgent(agents) {
+        // Get or create system settings
+        let settings = await prisma.systemSettings.findUnique({
+            where: { id: 'default' }
+        });
+
+        if (!settings) {
+            settings = await prisma.systemSettings.create({
+                data: { id: 'default' }
+            });
+        }
+
+        const lastAssignedAgentId = settings.lastAssignedAgentId;
+
+        // Find the index of the last assigned agent
+        let lastIndex = -1;
+        if (lastAssignedAgentId) {
+            lastIndex = agents.findIndex(a => a.id === lastAssignedAgentId);
+        }
+
+        // Select the next agent in the list (round-robin)
+        const nextIndex = (lastIndex + 1) % agents.length;
+        const selectedAgent = agents[nextIndex];
+
+        // Update the last assigned agent ID in database
+        await prisma.systemSettings.update({
+            where: { id: 'default' },
+            data: { lastAssignedAgentId: selectedAgent.id }
+        });
+
+        console.log(`Round-robin: last=${lastAssignedAgentId}, selected=${selectedAgent.id} (${selectedAgent.user.fullName})`);
+        return selectedAgent;
     }
 
     /**
@@ -202,6 +230,68 @@ class OrderDistributionService {
                 relatedOrderId: orderId
             }
         });
+    }
+
+    /**
+     * Reassign all active orders from an agent who went offline
+     * @param {string} agentId - The agent who went offline
+     * @returns {Promise<number>} Number of orders reassigned
+     */
+    async reassignAgentOrders(agentId) {
+        try {
+            // Find all active orders assigned to this agent
+            const activeOrders = await prisma.order.findMany({
+                where: {
+                    agentId,
+                    status: {
+                        in: ['ASSIGNED', 'PICKED', 'IN_TRANSIT']
+                    }
+                }
+            });
+
+            if (activeOrders.length === 0) {
+                return 0;
+            }
+
+            let reassignedCount = 0;
+
+            for (const order of activeOrders) {
+                // Remove current agent assignment
+                await prisma.order.update({
+                    where: { id: order.id },
+                    data: {
+                        agentId: null,
+                        status: 'PLACED'
+                    }
+                });
+
+                // Decrement the offline agent's order count
+                await prisma.agent.update({
+                    where: { id: agentId },
+                    data: {
+                        currentOrderCount: {
+                            decrement: 1
+                        }
+                    }
+                });
+
+                // Try to reassign to another agent
+                const result = await this.assignOrder(order.id);
+
+                if (!result.queued) {
+                    reassignedCount++;
+                    console.log(`Order ${order.orderNumber} reassigned to agent ${result.agentId}`);
+                } else {
+                    console.log(`Order ${order.orderNumber} queued - no available agents`);
+                }
+            }
+
+            return reassignedCount;
+
+        } catch (error) {
+            console.error('Reassign agent orders error:', error);
+            throw error;
+        }
     }
 }
 

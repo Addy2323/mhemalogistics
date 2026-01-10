@@ -987,10 +987,10 @@ const DashboardOrders = () => {
                         {selectedOrder.productImageUrls.map((url, index) => (
                           <div key={index} className="relative aspect-square rounded-xl overflow-hidden border border-border">
                             <img
-                              src={`${API_HOST}${url}`}
+                              src={url.replace('/uploads/', '/api/uploads/')}
                               alt={`Product ${index}`}
                               className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform"
-                              onClick={() => window.open(`${API_HOST}${url}`, '_blank')}
+                              onClick={() => window.open(url.replace('/uploads/', '/api/uploads/'), '_blank')}
                             />
                           </div>
                         ))}
@@ -1134,7 +1134,7 @@ const DashboardOrders = () => {
                   <p className="text-sm text-muted-foreground mb-3">{qr.accountName}</p>
                   <div className="bg-white p-2 rounded-lg border border-border mb-3">
                     <img
-                      src={`${API_HOST}${qr.qrCodeUrl}`}
+                      src={qr.qrCodeUrl.replace('/uploads/', '/api/uploads/')}
                       alt={qr.provider}
                       className="w-32 h-32 object-contain"
                     />

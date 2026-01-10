@@ -231,6 +231,12 @@ router.patch('/:id/status', authenticateToken, async (req, res) => {
             await orderDistribution.processQueue();
         }
 
+        // If agent went offline, reassign their active orders
+        if (availabilityStatus === 'OFFLINE') {
+            const reassignedCount = await orderDistribution.reassignAgentOrders(agent.id);
+            console.log(`Agent ${agent.id} went offline. Reassigned ${reassignedCount} orders.`);
+        }
+
         res.json({ success: true, data: updatedAgent });
     } catch (error) {
         console.error('Update agent status error:', error);

@@ -301,3 +301,11 @@ model ChatMessage {
   @@index([chatId, createdAt])
   @@map("chat_messages")
 }
+
+model SystemSettings {
+  id              String   @id @default("default")
+  lastAssignedAgentId String? @map("last_assigned_agent_id")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("system_settings")
+}
