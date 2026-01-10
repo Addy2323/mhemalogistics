@@ -20,6 +20,8 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { API_HOST } from "@/config/api";
+import NotificationBell from "./NotificationBell";
+import ChatList from "../chat/ChatList";
 
 
 const DashboardSidebar = () => {
@@ -105,12 +107,20 @@ const DashboardSidebar = () => {
             </div>
           )}
         </a>
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="p-1.5 rounded-lg hover:bg-muted transition-colors hidden lg:flex"
-        >
-          <ChevronLeft className={cn("w-4 h-4 text-muted-foreground transition-transform", collapsed && "rotate-180")} />
-        </button>
+        <div className="flex items-center gap-1">
+          {!collapsed && (
+            <div className="flex items-center gap-1 mr-2">
+              <ChatList />
+              <NotificationBell />
+            </div>
+          )}
+          <button
+            onClick={() => setCollapsed(!collapsed)}
+            className="p-1.5 rounded-lg hover:bg-muted transition-colors hidden lg:flex"
+          >
+            <ChevronLeft className={cn("w-4 h-4 text-muted-foreground transition-transform", collapsed && "rotate-180")} />
+          </button>
+        </div>
       </div>
 
       {/* User Info */}
