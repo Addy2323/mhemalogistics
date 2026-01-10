@@ -550,6 +550,74 @@ router.patch('/:id/payment', authenticateToken, authorize('AGENT', 'ADMIN'), asy
     }
 });
 
+// Customer notifies that they have made payment
+router.post('/:id/payment-done', authenticateToken, async (req, res) => {
+    try {
+        const order = await prisma.order.findUnique({
+            where: { id: req.params.id },
+            include: {
+                customer: {
+                    select: { fullName: true, phone: true }
+                },
+                agent: {
+                    include: {
+                        user: { select: { id: true, fullName: true } }
+                    }
+                }
+            }
+        });
+
+        if (!order) {
+            return res.status(404).json({ error: { message: 'Order not found' } });
+        }
+
+        // Verify that the requester is the customer who made the order
+        if (order.customerId !== req.user.id) {
+            return res.status(403).json({ error: { message: 'Access denied' } });
+        }
+
+        // Create notification for agent
+        if (order.agent) {
+            await prisma.notification.create({
+                data: {
+                    userId: order.agent.user.id,
+                    type: 'PAYMENT_CONFIRMED',
+                    title: 'Customer Claims Payment Made',
+                    message: `Customer ${order.customer.fullName} (${order.customer.phone || 'No phone'}) claims to have paid for Order #${order.orderNumber}. Please verify and confirm the payment.`,
+                    relatedOrderId: order.id
+                }
+            });
+        }
+
+        // Also notify admin
+        const admins = await prisma.user.findMany({
+            where: { role: 'ADMIN' }
+        });
+
+        for (const admin of admins) {
+            await prisma.notification.create({
+                data: {
+                    userId: admin.id,
+                    type: 'PAYMENT_CONFIRMED',
+                    title: 'Customer Claims Payment Made',
+                    message: `Customer ${order.customer.fullName} claims to have paid for Order #${order.orderNumber}. Awaiting agent confirmation.`,
+                    relatedOrderId: order.id
+                }
+            });
+        }
+
+        console.log(`Customer ${order.customer.fullName} notified payment done for order ${order.orderNumber}`);
+
+        res.json({
+            success: true,
+            message: 'Agent has been notified of your payment'
+        });
+    } catch (error) {
+        console.error('Payment done notification error:', error);
+        res.status(500).json({ error: { message: 'Failed to notify agent' } });
+    }
+});
+
 // Reassign order (Admin only)
 router.patch('/:id/assign', authenticateToken, authorize('ADMIN'), async (req, res) => {
     try {

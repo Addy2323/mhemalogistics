@@ -122,6 +122,9 @@ export const ordersAPI = {
     verifyOrder: (id: string) =>
         apiClient.patch(`/orders/${id}/verify`),
 
+    notifyPaymentDone: (id: string) =>
+        apiClient.post(`/orders/${id}/payment-done`),
+
     delete: (id: string) =>
         apiClient.delete(`/orders/${id}`),
 };

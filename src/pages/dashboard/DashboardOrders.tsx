@@ -19,7 +19,18 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Search, Plus, Eye, MapPin, Package, RefreshCw, CreditCard, DollarSign, MessageSquare, Printer, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Search, Plus, Eye, MapPin, Package, RefreshCw, CreditCard, DollarSign, MessageSquare, Printer, Trash2, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow, format } from "date-fns";
 import LocationPicker from "@/components/dashboard/LocationPicker";
@@ -1157,9 +1168,46 @@ const DashboardOrders = () => {
               <li>Scan the QR code or use the Lipa Number.</li>
               <li>Enter the exact amount: <span className="font-bold text-foreground">TSh {(selectedOrder?.actualCost || 0).toLocaleString()}</span></li>
               <li>Complete the transaction on your phone.</li>
-              <li>Wait for the agent to confirm your payment.</li>
+              <li>Click "Payment Done" button below after completing payment.</li>
             </ol>
           </div>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="hero" className="w-full mt-4">
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Payment Done
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Confirm Payment</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Have you made the payment for Order #{selectedOrder?.orderNumber}?
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={async () => {
+                    try {
+                      await ordersAPI.notifyPaymentDone(selectedOrder!.id);
+                      toast.success(
+                        "Thank you for choosing MHEMA Logistics! Agent is checking your payment and will confirm within 3 minutes. Stay tuned on your order status.",
+                        { duration: 8000 }
+                      );
+                      setIsPaymentOpen(false);
+                      setSelectedOrder(null);
+                      fetchOrders();
+                    } catch (error: any) {
+                      toast.error(error.message || "Failed to notify agent");
+                    }
+                  }}
+                >
+                  Yes, I have paid
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </DialogContent>
       </Dialog>
 
