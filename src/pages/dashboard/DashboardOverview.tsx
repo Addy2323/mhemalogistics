@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { analyticsAPI } from '@/lib/api';
 import StatsCard from '@/components/dashboard/StatsCard';
 import { Package, DollarSign, TrendingUp, Users, Clock, CheckCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 interface DashboardMetrics {
   totalOrders?: number;
@@ -154,44 +155,44 @@ const DashboardOverview = () => {
         <h2 className="text-xl font-semibold mb-4">{t('dashboard.overview.quickActions.title')}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {isCustomer && (
-            <a
-              href="/dashboard/orders"
-              className="p-4 rounded-lg border border-border hover:border-secondary hover:bg-secondary/5 transition-colors"
+            <Link
+              to="/dashboard/orders"
+              className="p-4 rounded-lg border border-border hover:border-secondary hover:bg-secondary/5 transition-colors cursor-pointer"
             >
               <Package className="w-6 h-6 mb-2 text-secondary" />
               <h3 className="font-medium">{t('dashboard.overview.actions.newOrder')}</h3>
               <p className="text-sm text-muted-foreground">{t('dashboard.overview.actions.newOrderDesc')}</p>
-            </a>
+            </Link>
           )}
           {isAdmin && (
             <>
-              <a
-                href="/dashboard/agents"
-                className="p-4 rounded-lg border border-border hover:border-secondary hover:bg-secondary/5 transition-colors"
+              <Link
+                to="/dashboard/agents"
+                className="p-4 rounded-lg border border-border hover:border-secondary hover:bg-secondary/5 transition-colors cursor-pointer"
               >
                 <Users className="w-6 h-6 mb-2 text-secondary" />
                 <h3 className="font-medium">{t('dashboard.overview.actions.manageAgents')}</h3>
                 <p className="text-sm text-muted-foreground">{t('dashboard.overview.actions.manageAgentsDesc')}</p>
-              </a>
-              <a
-                href="/dashboard/orders"
-                className="p-4 rounded-lg border border-border hover:border-secondary hover:bg-secondary/5 transition-colors"
+              </Link>
+              <Link
+                to="/dashboard/orders"
+                className="p-4 rounded-lg border border-border hover:border-secondary hover:bg-secondary/5 transition-colors cursor-pointer"
               >
                 <Package className="w-6 h-6 mb-2 text-secondary" />
                 <h3 className="font-medium">{t('dashboard.overview.actions.viewOrders')}</h3>
                 <p className="text-sm text-muted-foreground">{t('dashboard.overview.actions.viewOrdersDesc')}</p>
-              </a>
+              </Link>
             </>
           )}
           {isAgent && (
-            <a
-              href="/dashboard/orders"
-              className="p-4 rounded-lg border border-border hover:border-secondary hover:bg-secondary/5 transition-colors"
+            <Link
+              to="/dashboard/orders"
+              className="p-4 rounded-lg border border-border hover:border-secondary hover:bg-secondary/5 transition-colors cursor-pointer"
             >
               <Package className="w-6 h-6 mb-2 text-secondary" />
               <h3 className="font-medium">{t('dashboard.overview.actions.myOrders')}</h3>
               <p className="text-sm text-muted-foreground">{t('dashboard.overview.actions.myOrdersDesc')}</p>
-            </a>
+            </Link>
           )}
         </div>
       </div>
@@ -200,3 +201,4 @@ const DashboardOverview = () => {
 };
 
 export default DashboardOverview;
+
