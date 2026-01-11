@@ -169,7 +169,9 @@ router.post('/', authenticateToken, async (req, res) => {
             transportMethodId,
             description,
             packageWeight,
-            productImageUrls
+            productImageUrls,
+            orderType,
+            productPrice
         } = req.body;
 
         // Sanitize transportMethodId: convert empty string to null
@@ -190,6 +192,24 @@ router.post('/', authenticateToken, async (req, res) => {
             });
         }
 
+        // Validate and set order type (default to TYPE_A)
+        const validOrderTypes = ['TYPE_A', 'TYPE_B', 'TYPE_C'];
+        if (!orderType || !validOrderTypes.includes(orderType)) {
+            orderType = 'TYPE_A';
+        }
+
+        // Order type-specific validation
+        // Type A: Logistics only, no product price needed
+        // Type B: Product price required from customer
+        // Type C: Product price set by agent later after sourcing
+        if (orderType === 'TYPE_B') {
+            if (!productPrice || isNaN(parseFloat(productPrice)) || parseFloat(productPrice) <= 0) {
+                return res.status(400).json({
+                    error: { message: 'Product price is required for Type B orders' }
+                });
+            }
+        }
+
         // Set estimated cost to null (will be set by agent later)
         let estimatedCost = null;
 
@@ -201,6 +221,7 @@ router.post('/', authenticateToken, async (req, res) => {
             data: {
                 customerId: req.user.id,
                 orderNumber,
+                orderType,
                 pickupAddress,
                 pickupLat: (pickupLat !== undefined && pickupLat !== null && pickupLat !== '' && !isNaN(pickupLat)) ? parseFloat(pickupLat) : null,
                 pickupLng: (pickupLng !== undefined && pickupLng !== null && pickupLng !== '' && !isNaN(pickupLng)) ? parseFloat(pickupLng) : null,
@@ -211,6 +232,7 @@ router.post('/', authenticateToken, async (req, res) => {
                 description,
                 packageWeight: (packageWeight !== undefined && packageWeight !== null && !isNaN(packageWeight)) ? parseFloat(packageWeight) : null,
                 estimatedCost,
+                productPrice: (productPrice !== undefined && productPrice !== null && !isNaN(productPrice)) ? parseFloat(productPrice) : null,
                 productImageUrls: Array.isArray(productImageUrls) ? productImageUrls : (productImageUrls ? [productImageUrls] : []),
                 status: 'PLACED'
             },
@@ -451,7 +473,17 @@ router.patch('/:id/status', authenticateToken, authorize('AGENT', 'ADMIN'), asyn
 // Update order details (Agent/Admin only)
 router.patch('/:id', authenticateToken, authorize('AGENT', 'ADMIN'), async (req, res) => {
     try {
-        const { actualCost, estimatedCost, packageWeight, description } = req.body;
+        const {
+            actualCost,
+            estimatedCost,
+            packageWeight,
+            description,
+            productPrice,
+            agentMargin,
+            pickupFee,
+            packingFee,
+            transportFee
+        } = req.body;
 
         const order = await prisma.order.findUnique({
             where: { id: req.params.id }
@@ -471,6 +503,38 @@ router.patch('/:id', authenticateToken, authorize('AGENT', 'ADMIN'), async (req,
         if (estimatedCost !== undefined) updateData.estimatedCost = parseFloat(estimatedCost);
         if (packageWeight !== undefined) updateData.packageWeight = parseFloat(packageWeight);
         if (description !== undefined) updateData.description = description;
+
+        // Pricing fields (set by agent during verification)
+        if (productPrice !== undefined) updateData.productPrice = parseFloat(productPrice);
+        if (agentMargin !== undefined) updateData.agentMargin = parseFloat(agentMargin);
+        if (pickupFee !== undefined) updateData.pickupFee = parseFloat(pickupFee);
+        if (packingFee !== undefined) updateData.packingFee = parseFloat(packingFee);
+        if (transportFee !== undefined) updateData.transportFee = parseFloat(transportFee);
+
+        // Auto-calculate totalAmount based on order type
+        // TYPE_A: Pickup + Packing + Transport
+        // TYPE_B: Product Price + Pickup + Packing + Transport  
+        // TYPE_C: Product Price + Agent Margin + Pickup + Packing + Transport
+        const finalProductPrice = updateData.productPrice ?? (order.productPrice ? parseFloat(order.productPrice.toString()) : 0);
+        const finalAgentMargin = updateData.agentMargin ?? (order.agentMargin ? parseFloat(order.agentMargin.toString()) : 0);
+        const finalPickupFee = updateData.pickupFee ?? (order.pickupFee ? parseFloat(order.pickupFee.toString()) : 0);
+        const finalPackingFee = updateData.packingFee ?? (order.packingFee ? parseFloat(order.packingFee.toString()) : 0);
+        const finalTransportFee = updateData.transportFee ?? (order.transportFee ? parseFloat(order.transportFee.toString()) : 0);
+
+        let totalAmount = 0;
+        if (order.orderType === 'TYPE_A') {
+            totalAmount = finalPickupFee + finalPackingFee + finalTransportFee;
+        } else if (order.orderType === 'TYPE_B') {
+            totalAmount = finalProductPrice + finalPickupFee + finalPackingFee + finalTransportFee;
+        } else if (order.orderType === 'TYPE_C') {
+            totalAmount = finalProductPrice + finalAgentMargin + finalPickupFee + finalPackingFee + finalTransportFee;
+        }
+
+        if (totalAmount > 0) {
+            updateData.totalAmount = totalAmount;
+            // Also update actualCost for compatibility with existing payment flow
+            updateData.actualCost = totalAmount;
+        }
 
         const updatedOrder = await prisma.order.update({
             where: { id: req.params.id },

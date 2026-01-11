@@ -96,6 +96,19 @@ const Footer = () => {
             </a>
           </div>
         </div>
+
+        {/* Developer Attribution */}
+        <div className="border-t border-primary-foreground/10 mt-6 pt-4 text-center">
+          <p className="text-xs text-primary-foreground/40">
+            Developed by <span className="text-primary-foreground/60 font-medium">Myamba Ado</span> —
+            <a
+              href="mailto:myambaado@gmail.com"
+              className="ml-1 text-primary-foreground/60 hover:text-secondary transition-colors"
+            >
+              myambaado@gmail.com
+            </a>
+          </p>
+        </div>
       </div>
     </footer>
   );

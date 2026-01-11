@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/contexts/AuthContext";
-import { ordersAPI, transportAPI, paymentQRAPI, chatsAPI } from "@/lib/api";
+import { ordersAPI, transportAPI, paymentQRAPI, chatsAPI, getImageUrl } from "@/lib/api";
 import OrderStatusBadge from "@/components/dashboard/OrderStatusBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,7 +30,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Search, Plus, Eye, MapPin, Package, RefreshCw, CreditCard, DollarSign, MessageSquare, Printer, Trash2, CheckCircle } from "lucide-react";
+import { Search, Plus, Eye, MapPin, Package, RefreshCw, CreditCard, DollarSign, MessageSquare, Printer, Trash2, CheckCircle, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow, format } from "date-fns";
 import LocationPicker from "@/components/dashboard/LocationPicker";
@@ -68,6 +68,7 @@ interface Order {
   id: string;
   orderNumber: string;
   status: string;
+  orderType: "TYPE_A" | "TYPE_B" | "TYPE_C";
   paymentStatus: string;
   pickupAddress: string;
   deliveryAddress: string;
@@ -77,6 +78,15 @@ interface Order {
   packageWeight?: number;
   productImageUrls: string[];
   isVerified: boolean;
+
+  // Pricing breakdown
+  productPrice?: number;
+  agentMargin?: number;
+  pickupFee?: number;
+  packingFee?: number;
+  transportFee?: number;
+  totalAmount?: number;
+
   customer: {
     fullName: string;
     email: string;
@@ -119,6 +129,8 @@ const DashboardOrders = () => {
     id: string;
     description: string;
     pickupAddress: string;
+    quantity: string;
+    pair: string;
     weight: string;
     imageUrls: string[];
     imagePreviews: string[];
@@ -130,6 +142,8 @@ const DashboardOrders = () => {
       id: "1",
       description: "",
       pickupAddress: "",
+      quantity: "",
+      pair: "",
       weight: "",
       imageUrls: [],
       imagePreviews: [],
@@ -141,6 +155,8 @@ const DashboardOrders = () => {
     pickupAddress: "",
     deliveryAddress: "",
     transportMethodId: "",
+    orderType: "TYPE_A" as "TYPE_A" | "TYPE_B" | "TYPE_C",
+    productPrice: "",
   });
 
   const [paymentData, setPaymentData] = useState({
@@ -187,6 +203,8 @@ const DashboardOrders = () => {
         id: Date.now().toString(),
         description: "",
         pickupAddress: "",
+        quantity: "",
+        pair: "",
         weight: "",
         imageUrls: [],
         imagePreviews: [],
@@ -262,6 +280,22 @@ const DashboardOrders = () => {
             : item
         )
       );
+    }
+  };
+
+  const handleUpdatePricing = async (orderId: string, data: any) => {
+    try {
+      const response: any = await ordersAPI.update(orderId, data);
+      if (response && response.success) {
+        toast.success("Pricing updated");
+        fetchOrders();
+        // Update selected order in state to show new total immediately
+        if (selectedOrder && selectedOrder.id === orderId) {
+          setSelectedOrder({ ...selectedOrder, ...response.data });
+        }
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update pricing");
     }
   };
 
@@ -395,8 +429,14 @@ const DashboardOrders = () => {
       allImageUrls.push(...item.imageUrls);
 
       let itemDesc = `${index + 1}. ${item.description || "Item"}`;
+      if (item.quantity) {
+        itemDesc += ` x${item.quantity}`;
+      }
+      if (item.pair) {
+        itemDesc += ` (${item.pair} pairs)`;
+      }
       if (item.pickupAddress && item.pickupAddress.trim() !== "") {
-        itemDesc += ` (Pickup: ${item.pickupAddress})`;
+        itemDesc += ` [Pickup: ${item.pickupAddress}]`;
       }
       if (item.weight) {
         itemDesc += ` - ${item.weight}kg`;
@@ -422,12 +462,16 @@ const DashboardOrders = () => {
           pickupAddress: "",
           deliveryAddress: "",
           transportMethodId: "",
+          orderType: "TYPE_A",
+          productPrice: "",
         });
         setItems([
           {
             id: Date.now().toString(),
             description: "",
             pickupAddress: "",
+            quantity: "",
+            pair: "",
             weight: "",
             imageUrls: [],
             imagePreviews: [],
@@ -632,7 +676,9 @@ const DashboardOrders = () => {
                     <td className="px-6 py-4">
                       <div className="flex flex-col">
                         <span className="text-sm font-medium">
-                          {order.actualCost ? (
+                          {order.totalAmount ? (
+                            `TSh ${order.totalAmount.toLocaleString()}`
+                          ) : order.actualCost ? (
                             `TSh ${order.actualCost.toLocaleString()}`
                           ) : order.estimatedCost && order.estimatedCost > 0 ? (
                             `TSh ${order.estimatedCost.toLocaleString()}`
@@ -640,7 +686,7 @@ const DashboardOrders = () => {
                             <span className="text-muted-foreground italic">Pending</span>
                           )}
                         </span>
-                        {order.actualCost && order.estimatedCost && order.actualCost !== order.estimatedCost && (
+                        {(order.totalAmount || order.actualCost) && order.estimatedCost && (order.totalAmount || order.actualCost) !== order.estimatedCost && (
                           <span className="text-[10px] text-muted-foreground line-through">
                             Est: TSh {order.estimatedCost.toLocaleString()}
                           </span>
@@ -832,6 +878,99 @@ const DashboardOrders = () => {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Order Type Selector */}
+            <div className="space-y-3">
+              <label className="text-sm font-medium">Order Type</label>
+              <div className="grid gap-2">
+                <label
+                  className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${newOrder.orderType === "TYPE_A"
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-muted-foreground"
+                    }`}
+                >
+                  <input
+                    type="radio"
+                    name="orderType"
+                    value="TYPE_A"
+                    checked={newOrder.orderType === "TYPE_A"}
+                    onChange={(e) => setNewOrder({ ...newOrder, orderType: e.target.value as "TYPE_A" | "TYPE_B" | "TYPE_C", productPrice: "" })}
+                    className="mt-1"
+                  />
+                  <div className="flex-1">
+                    <span className="font-medium text-sm">Type A - Logistics Only</span>
+                    <p className="text-xs text-muted-foreground mt-0.5">I already paid the supplier. I need pickup & delivery only.</p>
+                  </div>
+                </label>
+
+                <label
+                  className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${newOrder.orderType === "TYPE_B"
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-muted-foreground"
+                    }`}
+                >
+                  <input
+                    type="radio"
+                    name="orderType"
+                    value="TYPE_B"
+                    checked={newOrder.orderType === "TYPE_B"}
+                    onChange={(e) => setNewOrder({ ...newOrder, orderType: e.target.value as "TYPE_A" | "TYPE_B" | "TYPE_C" })}
+                    className="mt-1"
+                  />
+                  <div className="flex-1">
+                    <span className="font-medium text-sm">Type B - Pay & Deliver</span>
+                    <p className="text-xs text-muted-foreground mt-0.5">I know the price. MHEMA will pay the supplier and deliver to me.</p>
+                  </div>
+                </label>
+
+                <label
+                  className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${newOrder.orderType === "TYPE_C"
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-muted-foreground"
+                    }`}
+                >
+                  <input
+                    type="radio"
+                    name="orderType"
+                    value="TYPE_C"
+                    checked={newOrder.orderType === "TYPE_C"}
+                    onChange={(e) => setNewOrder({ ...newOrder, orderType: e.target.value as "TYPE_A" | "TYPE_B" | "TYPE_C", productPrice: "" })}
+                    className="mt-1"
+                  />
+                  <div className="flex-1">
+                    <span className="font-medium text-sm">Type C - Source & Deliver</span>
+                    <p className="text-xs text-muted-foreground mt-0.5">I don't know the price. MHEMA will find, negotiate, buy and deliver.</p>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            {/* Product Price - Only shown for Type B */}
+            {newOrder.orderType === "TYPE_B" && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Product Price (TSh)</label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="100"
+                  placeholder="Enter the product price"
+                  value={newOrder.productPrice}
+                  onChange={(e) => setNewOrder({ ...newOrder, productPrice: e.target.value })}
+                  required
+                />
+                <p className="text-xs text-muted-foreground">This is the price you want us to pay to the supplier.</p>
+              </div>
+            )}
+
+            {/* Info message for Type C */}
+            {newOrder.orderType === "TYPE_C" && (
+              <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                <p className="text-sm text-amber-700 dark:text-amber-300">
+                  <strong>Note:</strong> Our agent will source the product and provide you with the final price after negotiation.
+                </p>
+              </div>
+            )}
+
             <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
               {items.map((item, index) => (
                 <div key={item.id} className="p-4 border border-border rounded-xl space-y-3 bg-muted/30">
@@ -871,16 +1010,41 @@ const DashboardOrders = () => {
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Weight (kg)</label>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.1"
-                      value={item.weight}
-                      onChange={(e) => handleItemChange(item.id, "weight", e.target.value)}
-                      required
-                    />
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Quantity</label>
+                      <Input
+                        type="number"
+                        min="1"
+                        step="1"
+                        placeholder="Qty"
+                        value={item.quantity}
+                        onChange={(e) => handleItemChange(item.id, "quantity", e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Pair</label>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="1"
+                        placeholder="Pairs"
+                        value={item.pair}
+                        onChange={(e) => handleItemChange(item.id, "pair", e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Weight (kg)</label>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.1"
+                        placeholder="kg"
+                        value={item.weight}
+                        onChange={(e) => handleItemChange(item.id, "weight", e.target.value)}
+                      />
+                    </div>
                   </div>
 
                   <div className="space-y-2">
@@ -996,61 +1160,132 @@ const DashboardOrders = () => {
                     <div className="mt-4">
                       <p className="text-sm font-medium text-muted-foreground mb-2">Product Images</p>
                       <div className="grid grid-cols-2 gap-2">
-                        {selectedOrder.productImageUrls.map((url, index) => (
-                          <div key={index} className="relative aspect-square rounded-xl overflow-hidden border border-border">
-                            <img
-                              src={url.replace('/uploads/', '/api/uploads/')}
-                              alt={`Product ${index}`}
-                              className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform"
-                              onClick={() => window.open(url.replace('/uploads/', '/api/uploads/'), '_blank')}
-                            />
-                          </div>
-                        ))}
+                        {selectedOrder.productImageUrls.map((url, index) => {
+                          const imageUrl = getImageUrl(url);
+                          return (
+                            <div key={index} className="relative aspect-square rounded-xl overflow-hidden border border-border bg-muted/30 flex items-center justify-center">
+                              {imageUrl ? (
+                                <img
+                                  src={imageUrl}
+                                  alt={`Product ${index + 1}`}
+                                  className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform"
+                                  onClick={() => window.open(imageUrl, '_blank')}
+                                  onError={(e) => {
+                                    // Show fallback icon on error instead of hiding
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                    const parent = (e.target as HTMLImageElement).parentElement;
+                                    if (parent) {
+                                      const fallback = document.createElement('div');
+                                      fallback.className = 'flex flex-col items-center gap-1 text-muted-foreground';
+                                      fallback.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-image-off"><line x1="2" y1="2" x2="22" y2="22"/><path d="M10.41 10.41a2 2 0 1 1-2.82-2.82"/><line x1="14.5" y1="14.5" x2="14.51" y2="14.5"/><path d="m18.8 13.2 3.2 3.2v3.6a2 2 0 0 1-2 2H5.2l10.5-10.5Z"/><path d="M3 16.5V5.2a2 2 0 0 1 2-2H18.8l-10.5 10.5Z"/></svg><span class="text-[10px]">Error loading</span>';
+                                      parent.appendChild(fallback);
+                                    }
+                                  }}
+                                />
+                              ) : (
+                                <div className="flex flex-col items-center gap-1 text-muted-foreground">
+                                  <ImageIcon className="w-6 h-6 opacity-20" />
+                                  <span className="text-[10px]">No image</span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 bg-muted/50 rounded-xl">
-                    <h4 className="text-sm font-medium text-muted-foreground mb-1">Estimated Cost</h4>
-                    <p className="text-lg font-bold">
-                      {selectedOrder.estimatedCost && selectedOrder.estimatedCost > 0
-                        ? `TSh ${selectedOrder.estimatedCost.toLocaleString()}`
-                        : <span className="text-muted-foreground italic font-normal">Pending</span>}
-                    </p>
-                  </div>
-                  <div className="p-4 bg-muted/50 rounded-xl">
-                    <h4 className="text-sm font-medium text-muted-foreground mb-1">Actual Cost</h4>
-                    {(isAdmin || isAgent) && selectedOrder.status !== "COMPLETED" && selectedOrder.status !== "CANCELLED" ? (
-                      <div className="flex gap-2">
+                {/* Pricing Breakdown */}
+                <div className="p-4 bg-muted/50 rounded-xl space-y-3">
+                  <h4 className="text-sm font-medium text-muted-foreground mb-2">Pricing Breakdown ({selectedOrder.orderType.replace('TYPE_', 'Type ')})</h4>
+
+                  <div className="space-y-2">
+                    {/* Product Price - Shown for Type B & C */}
+                    {(selectedOrder.orderType === "TYPE_B" || selectedOrder.orderType === "TYPE_C") && (
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-muted-foreground">Product Price</span>
+                        {(isAdmin || isAgent) && selectedOrder.status !== "COMPLETED" ? (
+                          <Input
+                            type="number"
+                            className="h-7 w-24 text-right text-xs"
+                            defaultValue={selectedOrder.productPrice || ""}
+                            onBlur={(e) => handleUpdatePricing(selectedOrder.id, { productPrice: parseFloat(e.target.value) })}
+                          />
+                        ) : (
+                          <span className="font-medium">TSh {selectedOrder.productPrice?.toLocaleString() || 0}</span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Agent Margin - Shown for Type C */}
+                    {selectedOrder.orderType === "TYPE_C" && (
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-muted-foreground">Agent Margin</span>
+                        {(isAdmin || isAgent) && selectedOrder.status !== "COMPLETED" ? (
+                          <Input
+                            type="number"
+                            className="h-7 w-24 text-right text-xs"
+                            defaultValue={selectedOrder.agentMargin || ""}
+                            onBlur={(e) => handleUpdatePricing(selectedOrder.id, { agentMargin: parseFloat(e.target.value) })}
+                          />
+                        ) : (
+                          <span className="font-medium">TSh {selectedOrder.agentMargin?.toLocaleString() || 0}</span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Pickup Fee */}
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-muted-foreground">Pickup Fee</span>
+                      {(isAdmin || isAgent) && selectedOrder.status !== "COMPLETED" ? (
                         <Input
                           type="number"
-                          placeholder="Enter amount"
-                          defaultValue={selectedOrder.actualCost || ""}
-                          className="h-8 text-sm"
-                          onBlur={async (e) => {
-                            const val = parseFloat(e.target.value);
-                            if (!isNaN(val) && val !== selectedOrder.actualCost) {
-                              try {
-                                await ordersAPI.update(selectedOrder.id, { actualCost: val });
-                                toast.success("Actual cost updated");
-                                fetchOrders();
-                                setSelectedOrder({ ...selectedOrder, actualCost: val });
-                              } catch (err) {
-                                toast.error("Failed to update cost");
-                              }
-                            }
-                          }}
+                          className="h-7 w-24 text-right text-xs"
+                          defaultValue={selectedOrder.pickupFee || ""}
+                          onBlur={(e) => handleUpdatePricing(selectedOrder.id, { pickupFee: parseFloat(e.target.value) })}
                         />
-                      </div>
-                    ) : (
-                      <p className="text-lg font-bold text-secondary">
-                        {selectedOrder.actualCost
-                          ? `TSh ${selectedOrder.actualCost.toLocaleString()}`
-                          : "Pending"}
-                      </p>
-                    )}
+                      ) : (
+                        <span className="font-medium">TSh {selectedOrder.pickupFee?.toLocaleString() || 0}</span>
+                      )}
+                    </div>
+
+                    {/* Packing Fee */}
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-muted-foreground">Packing Fee</span>
+                      {(isAdmin || isAgent) && selectedOrder.status !== "COMPLETED" ? (
+                        <Input
+                          type="number"
+                          className="h-7 w-24 text-right text-xs"
+                          defaultValue={selectedOrder.packingFee || ""}
+                          onBlur={(e) => handleUpdatePricing(selectedOrder.id, { packingFee: parseFloat(e.target.value) })}
+                        />
+                      ) : (
+                        <span className="font-medium">TSh {selectedOrder.packingFee?.toLocaleString() || 0}</span>
+                      )}
+                    </div>
+
+                    {/* Transport Fee */}
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-muted-foreground">Transport Fee</span>
+                      {(isAdmin || isAgent) && selectedOrder.status !== "COMPLETED" ? (
+                        <Input
+                          type="number"
+                          className="h-7 w-24 text-right text-xs"
+                          defaultValue={selectedOrder.transportFee || ""}
+                          onBlur={(e) => handleUpdatePricing(selectedOrder.id, { transportFee: parseFloat(e.target.value) })}
+                        />
+                      ) : (
+                        <span className="font-medium">TSh {selectedOrder.transportFee?.toLocaleString() || 0}</span>
+                      )}
+                    </div>
+
+                    <div className="border-t border-border pt-2 mt-2 flex justify-between items-center">
+                      <span className="font-bold text-sm">Total Amount</span>
+                      <span className="text-lg font-bold text-primary">
+                        TSh {selectedOrder.totalAmount?.toLocaleString() || selectedOrder.actualCost?.toLocaleString() || 0}
+                      </span>
+                    </div>
                   </div>
                 </div>
 

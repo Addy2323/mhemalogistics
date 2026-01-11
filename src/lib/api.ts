@@ -15,8 +15,27 @@ const API_BASE_URL = API_URL;
 export const getImageUrl = (url?: string) => {
     if (!url) return undefined;
     if (url.startsWith('http')) return url;
-    const path = url.startsWith('/uploads/') ? url.replace('/uploads/', '/api/uploads/') : url;
-    return `${API_URL.replace('/api', '')}${path}`;
+
+    // Ensure path starts with /api/uploads/
+    let path = url;
+    if (url.startsWith('/uploads/')) {
+        path = url.replace('/uploads/', '/api/uploads/');
+    } else if (url.startsWith('uploads/')) {
+        path = '/api/' + url;
+    } else if (!url.startsWith('/api/uploads/')) {
+        path = '/api/uploads/' + (url.startsWith('/') ? url.substring(1) : url);
+    }
+
+    // Construct base URL without trailing slash
+    const baseUrl = API_URL.split('/api')[0];
+    const finalUrl = `${baseUrl}${path}`;
+
+    // Debug log to help identify issues in browser console
+    if (process.env.NODE_ENV === 'development') {
+        console.log('🖼️ Image URL:', { original: url, final: finalUrl });
+    }
+
+    return finalUrl;
 };
 
 // Create axios instance

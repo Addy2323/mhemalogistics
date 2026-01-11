@@ -219,7 +219,6 @@ const Receipt: React.FC<ReceiptProps> = ({ order, onClose, autoDownload = false 
 
             {/* Delivery Details Table */}
             <div className="mb-12 overflow-x-auto">
-                {/* Added delivery-header class for targeted 0px letter-spacing */}
                 <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2 delivery-header">
                     <div className="w-2 h-2 rounded-full bg-secondary"></div>
                     Delivery&nbsp;Details
@@ -247,6 +246,52 @@ const Receipt: React.FC<ReceiptProps> = ({ order, onClose, autoDownload = false 
                             ))}
                         </tbody>
                     </table>
+                </div>
+            </div>
+
+            {/* Pricing Breakdown */}
+            <div className="mb-12">
+                <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2 delivery-header">
+                    <div className="w-2 h-2 rounded-full bg-secondary"></div>
+                    Pricing&nbsp;Breakdown&nbsp;({order.orderType?.replace('TYPE_', 'Type ') || 'Type A'})
+                </h3>
+                <div className="bg-slate-50 rounded-2xl p-6 space-y-3 border border-slate-100">
+                    {order.productPrice > 0 && (
+                        <div className="flex justify-between text-sm">
+                            <span className="text-slate-500">{fixSpacing("Product Price")}</span>
+                            <span className="font-bold text-slate-800">TSh {order.productPrice.toLocaleString()}</span>
+                        </div>
+                    )}
+                    {order.agentMargin > 0 && (
+                        <div className="flex justify-between text-sm">
+                            <span className="text-slate-500">{fixSpacing("Agent Margin")}</span>
+                            <span className="font-bold text-slate-800">TSh {order.agentMargin.toLocaleString()}</span>
+                        </div>
+                    )}
+                    {order.pickupFee > 0 && (
+                        <div className="flex justify-between text-sm">
+                            <span className="text-slate-500">{fixSpacing("Pickup Fee")}</span>
+                            <span className="font-bold text-slate-800">TSh {order.pickupFee.toLocaleString()}</span>
+                        </div>
+                    )}
+                    {order.packingFee > 0 && (
+                        <div className="flex justify-between text-sm">
+                            <span className="text-slate-500">{fixSpacing("Packing Fee")}</span>
+                            <span className="font-bold text-slate-800">TSh {order.packingFee.toLocaleString()}</span>
+                        </div>
+                    )}
+                    {order.transportFee > 0 && (
+                        <div className="flex justify-between text-sm">
+                            <span className="text-slate-500">{fixSpacing("Transport Fee")}</span>
+                            <span className="font-bold text-slate-800">TSh {order.transportFee.toLocaleString()}</span>
+                        </div>
+                    )}
+                    <div className="border-t border-slate-200 pt-3 mt-3 flex justify-between items-center">
+                        <span className="text-base font-black text-slate-800 uppercase tracking-wider">{fixSpacing("Total Amount")}</span>
+                        <span className="text-2xl font-black text-secondary">
+                            TSh {(order.totalAmount || order.actualCost || 0).toLocaleString()}
+                        </span>
+                    </div>
                 </div>
             </div>
 

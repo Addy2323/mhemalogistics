@@ -44,6 +44,12 @@ enum PaymentStatus {
   FAILED
 }
 
+enum OrderType {
+  TYPE_A  // Customer already paid supplier - logistics only
+  TYPE_B  // Customer knows price but hasn't paid
+  TYPE_C  // Customer doesn't know price - MHEMA sources
+}
+
 enum PaymentProvider {
   M_PESA
   TIGO_PESA
@@ -129,6 +135,7 @@ model Order {
   agentId             String?       @map("agent_id")
   orderNumber         String        @unique @map("order_number")
   status              OrderStatus   @default(PLACED)
+  orderType           OrderType     @default(TYPE_A) @map("order_type")
   
   // Location details
   pickupAddress       String        @map("pickup_address")
@@ -146,6 +153,14 @@ model Order {
   actualCost          Decimal?      @map("actual_cost") @db.Decimal(10, 2)
   productImageUrls     String[]      @default([]) @map("product_image_urls")
   isVerified          Boolean       @default(false) @map("is_verified")
+  
+  // Pricing breakdown (per MHEMA pricing model)
+  productPrice        Decimal?      @map("product_price") @db.Decimal(10, 2)     // Required for Type B & C
+  agentMargin         Decimal?      @map("agent_margin") @db.Decimal(10, 2)      // Required for Type C only
+  pickupFee           Decimal?      @map("pickup_fee") @db.Decimal(10, 2)        // Set during verification
+  packingFee          Decimal?      @map("packing_fee") @db.Decimal(10, 2)       // Set during verification
+  transportFee        Decimal?      @map("transport_fee") @db.Decimal(10, 2)     // Set during verification
+  totalAmount         Decimal?      @map("total_amount") @db.Decimal(10, 2)      // Auto-calculated
   
   // Payment
   paymentStatus       PaymentStatus @default(PENDING) @map("payment_status")
