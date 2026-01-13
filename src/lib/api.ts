@@ -192,6 +192,14 @@ export const customersAPI = {
     list: (params?: { search?: string; status?: string }) =>
         apiClient.get('/customers', { params }),
 
+    create: (customerData: {
+        fullName: string;
+        email: string;
+        phone: string;
+        password?: string;
+    }) =>
+        apiClient.post('/customers', customerData),
+
     delete: (id: string) =>
         apiClient.delete(`/customers/${id}`),
 };

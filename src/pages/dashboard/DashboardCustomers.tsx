@@ -3,7 +3,8 @@ import { useTranslation } from "react-i18next";
 import { customersAPI } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, UserPlus, Mail, Phone, MapPin, Calendar, MoreVertical, Trash2, RefreshCw } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Search, UserPlus, Mail, Phone, MapPin, Calendar, MoreVertical, Trash2, RefreshCw, X, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import {
     DropdownMenu,
@@ -11,6 +12,13 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { API_HOST } from "@/config/api";
@@ -34,6 +42,16 @@ const DashboardCustomers = () => {
     const [searchQuery, setSearchQuery] = useState("");
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Form state
+    const [formData, setFormData] = useState({
+        fullName: "",
+        email: "",
+        phone: "",
+    });
+    const [phoneError, setPhoneError] = useState("");
 
     const getInitials = (name: string) => {
         if (!name) return '?';
@@ -45,6 +63,91 @@ const DashboardCustomers = () => {
             .substring(0, 2);
     };
 
+    /**
+     * Format phone input with 255 prefix
+     * Accepts: 0712345678, 712345678, 255712345678, +255712345678
+     * Returns: 255712345678
+     */
+    const formatPhoneInput = (value: string): string => {
+        // Remove all non-digit characters
+        let cleaned = value.replace(/\D/g, '');
+
+        // Handle different formats
+        if (cleaned.startsWith('0')) {
+            // Local format: 0712345678 -> 255712345678
+            cleaned = '255' + cleaned.substring(1);
+        } else if (cleaned.startsWith('255')) {
+            // Already in international format
+        } else if (cleaned.length <= 9 && cleaned.length > 0) {
+            // Just the number without prefix: 712345678
+            cleaned = '255' + cleaned;
+        }
+
+        return cleaned;
+    };
+
+    /**
+     * Display phone number in readable format: +255 712 345 678
+     */
+    const formatPhoneDisplay = (phone: string): string => {
+        if (!phone || phone === 'N/A') return phone;
+
+        // Ensure it starts with 255
+        let formatted = phone.replace(/\D/g, '');
+        if (!formatted.startsWith('255')) {
+            if (formatted.startsWith('0')) {
+                formatted = '255' + formatted.substring(1);
+            } else if (formatted.length === 9) {
+                formatted = '255' + formatted;
+            }
+        }
+
+        // Format as +255 XXX XXX XXX
+        if (formatted.length === 12) {
+            return `+${formatted.slice(0, 3)} ${formatted.slice(3, 6)} ${formatted.slice(6, 9)} ${formatted.slice(9)}`;
+        }
+
+        return phone;
+    };
+
+    /**
+     * Validate Tanzania phone number
+     */
+    const validatePhone = (phone: string): { isValid: boolean; error: string } => {
+        const cleaned = phone.replace(/\D/g, '');
+
+        if (!cleaned) {
+            return { isValid: false, error: "Phone number is required" };
+        }
+
+        // Format to 255 prefix
+        let formatted = cleaned;
+        if (cleaned.startsWith('0')) {
+            formatted = '255' + cleaned.substring(1);
+        } else if (!cleaned.startsWith('255') && cleaned.length === 9) {
+            formatted = '255' + cleaned;
+        }
+
+        // Tanzania phone numbers should be 12 digits (255 + 9 digits)
+        if (formatted.length !== 12) {
+            return { isValid: false, error: "Phone must be 9 digits after country code (e.g., 0712345678)" };
+        }
+
+        // Check for valid Tanzania prefixes (61, 62, 65, 67, 68, 69, 71, 72, 73, 74, 75, 76, 77, 78, 79)
+        const validPrefixes = ['61', '62', '65', '67', '68', '69', '71', '72', '73', '74', '75', '76', '77', '78', '79'];
+        const prefix = formatted.substring(3, 5);
+        if (!validPrefixes.includes(prefix)) {
+            return { isValid: false, error: `Invalid Tanzania mobile prefix. Use prefixes like 71, 75, 76, 78, etc.` };
+        }
+
+        return { isValid: true, error: "" };
+    };
+
+    const handlePhoneChange = (value: string) => {
+        setFormData({ ...formData, phone: value });
+        const validation = validatePhone(value);
+        setPhoneError(validation.error);
+    };
 
     useEffect(() => {
         fetchCustomers();
@@ -78,6 +181,45 @@ const DashboardCustomers = () => {
         }
     };
 
+    const handleAddCustomer = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        // Validate phone
+        const phoneValidation = validatePhone(formData.phone);
+        if (!phoneValidation.isValid) {
+            setPhoneError(phoneValidation.error);
+            return;
+        }
+
+        try {
+            setIsSubmitting(true);
+            const response: any = await customersAPI.create({
+                fullName: formData.fullName,
+                email: formData.email,
+                phone: formData.phone,
+            });
+
+            if (response && response.success) {
+                toast.success("Customer added successfully!");
+                setIsAddDialogOpen(false);
+                setFormData({ fullName: "", email: "", phone: "" });
+                setPhoneError("");
+                fetchCustomers();
+            } else {
+                toast.error(response.error?.message || "Failed to add customer");
+            }
+        } catch (error: any) {
+            toast.error(error.message || "Failed to add customer");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const resetForm = () => {
+        setFormData({ fullName: "", email: "", phone: "" });
+        setPhoneError("");
+    };
+
     const filteredCustomers = customers.filter(customer =>
         customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         customer.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -95,7 +237,7 @@ const DashboardCustomers = () => {
                     <Button variant="outline" size="sm" onClick={fetchCustomers}>
                         <RefreshCw className="w-4 h-4" />
                     </Button>
-                    <Button variant="hero">
+                    <Button variant="hero" onClick={() => { resetForm(); setIsAddDialogOpen(true); }}>
                         <UserPlus className="w-4 h-4" />
                         {t("dashboard.customers.addCustomer")}
                     </Button>
@@ -168,7 +310,7 @@ const DashboardCustomers = () => {
                                 </div>
                                 <div className="flex items-center gap-2 text-muted-foreground">
                                     <Phone className="w-4 h-4" />
-                                    <span>{customer.phone}</span>
+                                    <span className="font-medium text-foreground">{formatPhoneDisplay(customer.phone)}</span>
                                 </div>
                                 {customer.location && (
                                     <div className="flex items-center gap-2 text-muted-foreground">
@@ -193,6 +335,100 @@ const DashboardCustomers = () => {
                     ))
                 )}
             </div>
+
+            {/* Add Customer Dialog */}
+            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <UserPlus className="w-5 h-5 text-secondary" />
+                            Add New Customer
+                        </DialogTitle>
+                        <DialogDescription>
+                            Enter customer details below. Phone number will be formatted with Tanzania country code (255).
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <form onSubmit={handleAddCustomer} className="space-y-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="fullName">Full Name *</Label>
+                            <Input
+                                id="fullName"
+                                placeholder="Enter customer's full name"
+                                value={formData.fullName}
+                                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                                required
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="email">Email Address *</Label>
+                            <Input
+                                id="email"
+                                type="email"
+                                placeholder="customer@example.com"
+                                value={formData.email}
+                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                required
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="phone">Phone Number *</Label>
+                            <div className="relative">
+                                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                                    +255
+                                </div>
+                                <Input
+                                    id="phone"
+                                    type="tel"
+                                    placeholder="712 345 678"
+                                    value={formData.phone}
+                                    onChange={(e) => handlePhoneChange(e.target.value)}
+                                    className={`pl-16 ${phoneError ? 'border-destructive' : ''}`}
+                                    required
+                                />
+                            </div>
+                            {phoneError && (
+                                <p className="text-xs text-destructive">{phoneError}</p>
+                            )}
+                            <p className="text-xs text-muted-foreground">
+                                Enter number without country code (e.g., 0712345678 or 712345678)
+                            </p>
+                        </div>
+
+                        <div className="flex gap-2 pt-4">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                className="flex-1"
+                                onClick={() => setIsAddDialogOpen(false)}
+                                disabled={isSubmitting}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                type="submit"
+                                variant="hero"
+                                className="flex-1"
+                                disabled={isSubmitting || !!phoneError}
+                            >
+                                {isSubmitting ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                        Adding...
+                                    </>
+                                ) : (
+                                    <>
+                                        <UserPlus className="w-4 h-4 mr-2" />
+                                        Add Customer
+                                    </>
+                                )}
+                            </Button>
+                        </div>
+                    </form>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };

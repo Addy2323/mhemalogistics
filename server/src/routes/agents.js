@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { authenticateToken, authorize } from '../middleware/auth.js';
 import orderDistribution from '../services/orderDistribution.js';
+import smsService from '../services/smsService.js';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -130,6 +131,27 @@ router.post('/', authenticateToken, authorize('ADMIN'), async (req, res) => {
                 agent: true
             }
         });
+
+        // Send welcome SMS with credentials
+        if (phone) {
+            const welcomeMessage = `Congratulations! You have been added successfully to MHEMA Express Logistics as an Agent.
+
+Your login credentials:
+Username: ${email}
+Password: ${password}
+
+Login here: https://mhemalogistics.co.tz/auth?mode=login
+
+Welcome to the team!`;
+
+            try {
+                await smsService.sendSms(phone, welcomeMessage);
+                console.log(`Welcome SMS sent to new agent: ${phone}`);
+            } catch (smsError) {
+                console.error('Failed to send welcome SMS to agent:', smsError);
+                // Don't fail the request if SMS fails
+            }
+        }
 
         res.status(201).json({
             success: true,
