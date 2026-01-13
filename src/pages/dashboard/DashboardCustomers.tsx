@@ -4,7 +4,7 @@ import { customersAPI } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Search, UserPlus, Mail, Phone, MapPin, Calendar, MoreVertical, Trash2, RefreshCw, X, Loader2 } from "lucide-react";
+import { Search, UserPlus, Mail, Phone, MapPin, Calendar, MoreVertical, Trash2, RefreshCw, X, Loader2, Lock, Eye, EyeOff } from "lucide-react";
 import { format } from "date-fns";
 import {
     DropdownMenu,
@@ -44,14 +44,17 @@ const DashboardCustomers = () => {
     const [loading, setLoading] = useState(true);
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
     // Form state
     const [formData, setFormData] = useState({
         fullName: "",
         email: "",
         phone: "",
+        password: "",
     });
     const [phoneError, setPhoneError] = useState("");
+    const [passwordError, setPasswordError] = useState("");
 
     const getInitials = (name: string) => {
         if (!name) return '?';
@@ -143,6 +146,25 @@ const DashboardCustomers = () => {
         return { isValid: true, error: "" };
     };
 
+    /**
+     * Validate password - must be at least 6 characters
+     */
+    const validatePassword = (password: string): { isValid: boolean; error: string } => {
+        if (!password) {
+            return { isValid: false, error: "Password is required" };
+        }
+        if (password.length < 6) {
+            return { isValid: false, error: "Password must be at least 6 characters" };
+        }
+        return { isValid: true, error: "" };
+    };
+
+    const handlePasswordChange = (value: string) => {
+        setFormData({ ...formData, password: value });
+        const validation = validatePassword(value);
+        setPasswordError(validation.error);
+    };
+
     const handlePhoneChange = (value: string) => {
         setFormData({ ...formData, phone: value });
         const validation = validatePhone(value);
@@ -191,19 +213,28 @@ const DashboardCustomers = () => {
             return;
         }
 
+        // Validate password
+        const passwordValidation = validatePassword(formData.password);
+        if (!passwordValidation.isValid) {
+            setPasswordError(passwordValidation.error);
+            return;
+        }
+
         try {
             setIsSubmitting(true);
             const response: any = await customersAPI.create({
                 fullName: formData.fullName,
                 email: formData.email,
                 phone: formData.phone,
+                password: formData.password,
             });
 
             if (response && response.success) {
                 toast.success("Customer added successfully!");
                 setIsAddDialogOpen(false);
-                setFormData({ fullName: "", email: "", phone: "" });
+                setFormData({ fullName: "", email: "", phone: "", password: "" });
                 setPhoneError("");
+                setPasswordError("");
                 fetchCustomers();
             } else {
                 toast.error(response.error?.message || "Failed to add customer");
@@ -216,8 +247,10 @@ const DashboardCustomers = () => {
     };
 
     const resetForm = () => {
-        setFormData({ fullName: "", email: "", phone: "" });
+        setFormData({ fullName: "", email: "", phone: "", password: "" });
         setPhoneError("");
+        setPasswordError("");
+        setShowPassword(false);
     };
 
     const filteredCustomers = customers.filter(customer =>
@@ -397,6 +430,35 @@ const DashboardCustomers = () => {
                             </p>
                         </div>
 
+                        <div className="space-y-2">
+                            <Label htmlFor="password">Password *</Label>
+                            <div className="relative">
+                                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                <Input
+                                    id="password"
+                                    type={showPassword ? "text" : "password"}
+                                    placeholder="Enter password (min 6 characters)"
+                                    value={formData.password}
+                                    onChange={(e) => handlePasswordChange(e.target.value)}
+                                    className={`pl-10 pr-10 ${passwordError ? 'border-destructive' : ''}`}
+                                    required
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                >
+                                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                </button>
+                            </div>
+                            {passwordError && (
+                                <p className="text-xs text-destructive">{passwordError}</p>
+                            )}
+                            <p className="text-xs text-muted-foreground">
+                                This password will be sent to the customer via SMS
+                            </p>
+                        </div>
+
                         <div className="flex gap-2 pt-4">
                             <Button
                                 type="button"
@@ -411,7 +473,7 @@ const DashboardCustomers = () => {
                                 type="submit"
                                 variant="hero"
                                 className="flex-1"
-                                disabled={isSubmitting || !!phoneError}
+                                disabled={isSubmitting || !!phoneError || !!passwordError || !formData.password}
                             >
                                 {isSubmitting ? (
                                     <>
