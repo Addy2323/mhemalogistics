@@ -511,7 +511,7 @@ const About = () => {
                                         <div className="w-20 h-20 bg-secondary/10 rounded-2xl flex items-center justify-center mx-auto mb-6 animate-pulse-subtle">
                                             <Heart className="w-10 h-10 text-secondary" />
                                         </div>
-                                        <h3 className="text-2xl font-bold text-foreground mb-3">Karibuni Sana! 🙏</h3>
+                                        <h3 className="text-2xl font-bold text-foreground mb-3">Karibuni Sana!</h3>
                                         <p className="text-muted-foreground mb-6">
                                             MHEMA EXPRESS LOGISTICS CO. LTD
                                             <br />
