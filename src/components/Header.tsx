@@ -15,6 +15,7 @@ const Header = () => {
     { name: t("nav.services"), href: "#services" },
     { name: t("nav.howItWorks"), href: "#how-it-works" },
     { name: t("nav.whyUs"), href: "#why-us" },
+    { name: "Kuhusu Sisi", href: "/about", isLink: true },
     { name: t("nav.contact"), href: "#contact" },
   ];
 
@@ -35,14 +36,25 @@ const Header = () => {
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-8">
             {navLinks.map((link) => (
-              <a
-                key={link.name}
-                href={link.href}
-                className="relative text-sm font-medium text-muted-foreground hover:text-foreground transition-colors group"
-              >
-                {link.name}
-                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-secondary transition-all duration-300 group-hover:w-full" />
-              </a>
+              link.isLink ? (
+                <Link
+                  key={link.name}
+                  to={link.href}
+                  className="relative text-sm font-medium text-muted-foreground hover:text-foreground transition-colors group"
+                >
+                  {link.name}
+                  <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-secondary transition-all duration-300 group-hover:w-full" />
+                </Link>
+              ) : (
+                <a
+                  key={link.name}
+                  href={link.href}
+                  className="relative text-sm font-medium text-muted-foreground hover:text-foreground transition-colors group"
+                >
+                  {link.name}
+                  <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-secondary transition-all duration-300 group-hover:w-full" />
+                </a>
+              )
             ))}
           </nav>
 
@@ -84,14 +96,25 @@ const Header = () => {
           <div className="md:hidden py-4 border-t border-border animate-fade-in">
             <nav className="flex flex-col gap-4">
               {navLinks.map((link) => (
-                <a
-                  key={link.name}
-                  href={link.href}
-                  className="text-base font-medium text-muted-foreground hover:text-secondary hover:translate-x-1 transition-all duration-300"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  {link.name}
-                </a>
+                link.isLink ? (
+                  <Link
+                    key={link.name}
+                    to={link.href}
+                    className="text-base font-medium text-muted-foreground hover:text-secondary hover:translate-x-1 transition-all duration-300"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    {link.name}
+                  </Link>
+                ) : (
+                  <a
+                    key={link.name}
+                    href={link.href}
+                    className="text-base font-medium text-muted-foreground hover:text-secondary hover:translate-x-1 transition-all duration-300"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    {link.name}
+                  </a>
+                )
               ))}
               <div className="pt-4 flex flex-col gap-3">
                 <a href="tel:+255756312736" className="flex items-center gap-2 text-base font-medium text-foreground">
