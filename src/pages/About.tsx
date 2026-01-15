@@ -1,6 +1,7 @@
 import { Helmet } from "react-helmet-async";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { useState, useEffect } from "react";
 import {
     Package,
     Truck,
@@ -32,6 +33,23 @@ import { useNavigate } from "react-router-dom";
 
 const About = () => {
     const navigate = useNavigate();
+
+    // Rotating hero images
+    const [currentImageIndex, setCurrentImageIndex] = useState(0);
+    const heroImages = [
+        "/hero-premium.png",
+        "/hero-warehouse.png",
+        "/hero-delivery.png",
+        "/hero-cargo.png",
+        "/hero-verification.png"
+    ];
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setCurrentImageIndex((prev) => (prev + 1) % heroImages.length);
+        }, 4000);
+        return () => clearInterval(interval);
+    }, []);
 
     const services = [
         {
@@ -74,7 +92,7 @@ const About = () => {
     const whatWeProvide = [
         {
             icon: Truck,
-            title: "Logistics Services",
+            title: "Huduma za Logistics",
             items: [
                 "Pickup ya bidhaa kutoka dukani",
                 "Kuhifadhi (warehouse)",
@@ -84,17 +102,17 @@ const About = () => {
         },
         {
             icon: Zap,
-            title: "Rapid Transport",
+            title: "Usafirishaji wa Haraka",
             items: ["Express Delivery Services"],
         },
         {
             icon: Package,
-            title: "Supply Chain Services",
-            items: ["Buying raw materials"],
+            title: "Supply Chain",
+            items: ["Kununua malighafi"],
         },
         {
             icon: Ship,
-            title: "Freight Pickup / Cargo Collection",
+            title: "Cargo Collection",
             items: ["Pickup kutoka shop, warehouse au muuzaji"],
         },
     ];
@@ -146,68 +164,111 @@ const About = () => {
             <div className="min-h-screen bg-background">
                 <Header />
 
-                {/* Hero Section */}
-                <section className="relative min-h-[70vh] flex items-center overflow-hidden bg-hero-gradient pt-20">
-                    {/* Background Effects */}
-                    <div className="absolute inset-0 opacity-10">
-                        <div className="absolute top-20 left-10 w-72 h-72 bg-secondary rounded-full blur-3xl animate-pulse-subtle" />
+                {/* Hero Section - Split Layout with Full Image */}
+                <section className="relative min-h-screen flex items-center overflow-hidden pt-16">
+                    {/* Left Side - Content with Navy Background */}
+                    <div className="absolute inset-y-0 left-0 w-full lg:w-1/2 bg-navy">
+                        {/* Background Effects */}
+                        <div className="absolute inset-0 opacity-10">
+                            <div className="absolute top-20 left-10 w-72 h-72 bg-secondary rounded-full blur-3xl animate-pulse-subtle" />
+                            <div
+                                className="absolute bottom-20 right-10 w-64 h-64 bg-secondary rounded-full blur-3xl animate-pulse-subtle"
+                                style={{ animationDelay: "1s" }}
+                            />
+                        </div>
+
+                        {/* Grid Pattern */}
                         <div
-                            className="absolute bottom-20 right-10 w-96 h-96 bg-secondary rounded-full blur-3xl animate-pulse-subtle"
-                            style={{ animationDelay: "1s" }}
+                            className="absolute inset-0 opacity-5"
+                            style={{
+                                backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+                            }}
                         />
                     </div>
 
-                    {/* Grid Pattern */}
-                    <div
-                        className="absolute inset-0 opacity-5"
-                        style={{
-                            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-                        }}
-                    />
+                    {/* Right Side - Image Background */}
+                    <div className="absolute inset-y-0 right-0 w-full lg:w-1/2 hidden lg:block">
+                        <div className="relative h-full w-full overflow-hidden">
+                            {heroImages.map((img, index) => (
+                                <img
+                                    key={img}
+                                    src={img}
+                                    alt={`MHEMA EXPRESS Logistics - ${img.replace('/hero-', '').replace('.png', '').replace('-', ' ')} huduma`}
+                                    className={`absolute inset-0 w-full h-full object-cover transition-all duration-1000 ${index === currentImageIndex ? "opacity-100" : "opacity-0"}`}
+                                />
+                            ))}
+                            {/* Gradient Overlay */}
+                            <div className="absolute inset-0 bg-gradient-to-r from-navy via-navy/40 to-transparent" />
+                            <div className="absolute inset-0 bg-navy/20" />
 
-                    <div className="container mx-auto px-4 relative z-10">
-                        <div className="text-center max-w-4xl mx-auto">
-                            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary-foreground/10 border border-primary-foreground/20 text-primary-foreground text-sm font-medium mb-6 animate-fade-in">
-                                <Sparkles className="w-4 h-4 text-secondary" />
-                                <span>Uaminifu Wetu, Fahari Yako</span>
+                            {/* Floating Truck Branding Overlay */}
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="absolute top-1/3 left-1/4 text-white/30 font-bold text-xl tracking-wider uppercase rotate-[-5deg]">
+                                    DELIVERING SPEED & CERTAINTY
+                                </div>
                             </div>
 
-                            <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-primary-foreground leading-tight mb-6 animate-slide-up">
-                                MHEMA EXPRESS
-                                <span className="block text-secondary">LOGISTICS CO. LTD</span>
-                            </h1>
-
-                            <p
-                                className="text-lg md:text-xl text-primary-foreground/80 mb-8 max-w-2xl mx-auto animate-slide-up"
-                                style={{ animationDelay: "0.1s" }}
-                            >
-                                Kampuni ya kitaalamu inayojihusisha na kukusanya oda (mizigo) kutoka maduka mbalimbali
-                                na kutoa huduma ya Express Delivery ndani na nje ya Dar es Salaam, pamoja na Zanzibar
-                                na visiwa vyake.
-                            </p>
-
-                            <div
-                                className="flex flex-col sm:flex-row gap-4 justify-center animate-slide-up"
-                                style={{ animationDelay: "0.2s" }}
-                            >
-                                <Button variant="hero" size="xl" onClick={() => navigate("/auth")} className="hover-lift hover-glow group">
-                                    Anza Sasa
-                                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                                </Button>
-                                <Button
-                                    variant="heroOutline"
-                                    size="xl"
-                                    className="hover-lift hover-scale-sm"
-                                    onClick={() => document.getElementById("story")?.scrollIntoView({ behavior: "smooth" })}
-                                >
-                                    Soma Zaidi
-                                </Button>
+                            {/* Quality Badge - Right Side */}
+                            <div className="absolute top-1/3 right-8 bg-success rounded-2xl px-5 py-3 shadow-lg animate-float border border-white/20" style={{ animationDelay: "2s" }}>
+                                <div className="flex items-center gap-3">
+                                    <CheckCircle className="w-6 h-6 text-white" />
+                                    <span className="text-white font-bold text-base">98% Uhakika</span>
+                                </div>
                             </div>
                         </div>
                     </div>
 
+                    {/* Mobile Background */}
+                    <div className="absolute inset-0 lg:hidden bg-navy" />
+
+                    {/* Content Container */}
+                    <div className="container mx-auto px-4 py-20 lg:py-32 relative z-10">
+                        <div className="grid lg:grid-cols-2 gap-12 items-center">
+                            {/* Left - Text Content */}
+                            <div className="text-left max-w-xl">
+                                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary-foreground/10 border border-primary-foreground/20 text-primary-foreground text-sm font-medium mb-6 animate-fade-in">
+                                    <Sparkles className="w-4 h-4 text-secondary" />
+                                    <span>Uaminifu Wetu, Fahari Yako</span>
+                                </div>
+
+                                <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-primary-foreground leading-tight mb-6 animate-slide-up">
+                                    MHEMA EXPRESS
+                                    <span className="block text-secondary">LOGISTICS CO. LTD</span>
+                                </h1>
+
+                                <p
+                                    className="text-base md:text-lg text-primary-foreground/80 mb-8 leading-relaxed animate-slide-up"
+                                    style={{ animationDelay: "0.1s" }}
+                                >
+                                    Kampuni ya kitaalamu inayojihusisha na kukusanya oda (mizigo) kutoka maduka mbalimbali na kutoa huduma ya Express Delivery ndani na nje ya Dar es Salaam, pamoja na Zanzibar na visiwa vyake.
+                                </p>
+
+                                <div
+                                    className="flex flex-col sm:flex-row gap-4 mb-10 animate-slide-up"
+                                    style={{ animationDelay: "0.2s" }}
+                                >
+                                    <Button variant="hero" size="xl" onClick={() => navigate("/auth")} className="hover-lift hover-glow group">
+                                        Anza Sasa
+                                        <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                                    </Button>
+                                    <Button
+                                        variant="heroOutline"
+                                        size="xl"
+                                        className="hover-lift hover-scale-sm"
+                                        onClick={() => document.getElementById("story")?.scrollIntoView({ behavior: "smooth" })}
+                                    >
+                                        Soma Zaidi
+                                    </Button>
+                                </div>
+                            </div>
+
+                            {/* Right Side - Empty for image background */}
+                            <div className="hidden lg:block" />
+                        </div>
+                    </div>
+
                     {/* Wave Divider */}
-                    <div className="absolute bottom-0 left-0 right-0">
+                    <div className="absolute bottom-0 left-0 right-0 z-20">
                         <svg viewBox="0 0 1440 120" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full">
                             <path
                                 d="M0 120L60 105C120 90 240 60 360 45C480 30 600 30 720 37.5C840 45 960 60 1080 67.5C1200 75 1320 75 1380 75L1440 75V120H1380C1320 120 1200 120 1080 120C960 120 840 120 720 120C600 120 480 120 360 120C240 120 120 120 60 120H0Z"
