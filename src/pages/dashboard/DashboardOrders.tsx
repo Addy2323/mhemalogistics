@@ -604,7 +604,7 @@ const DashboardOrders = () => {
           <Button variant="outline" size="sm" onClick={fetchOrders}>
             <RefreshCw className="w-4 h-4" />
           </Button>
-          {!isAdmin && !isAgent && (
+          {(isAdmin || (!isAdmin && !isAgent)) && (
             <Button variant="hero" onClick={() => setIsNewOrderOpen(true)}>
               <Plus className="w-4 h-4" />
               New Order
