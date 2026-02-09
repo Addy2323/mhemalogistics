@@ -120,6 +120,7 @@ export const ordersAPI = {
         description?: string;
         packageWeight?: number;
         productImageUrls?: string[];
+        customerId?: string;
     }) =>
         apiClient.post('/orders', orderData),
 

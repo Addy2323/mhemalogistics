@@ -216,10 +216,26 @@ router.post('/', authenticateToken, async (req, res) => {
         // Generate order number
         const orderNumber = `ORD-${Date.now()}-${uuidv4().substring(0, 4).toUpperCase()}`;
 
+        // Admin can create order on behalf of customer
+        let finalCustomerId = req.user.id;
+        if (req.user.role === 'ADMIN' && req.body.customerId) {
+            // Verify if the customer exists
+            const targetCustomer = await prisma.user.findUnique({
+                where: { id: req.body.customerId, role: 'CUSTOMER' }
+            });
+            if (targetCustomer) {
+                finalCustomerId = req.body.customerId;
+            } else {
+                return res.status(400).json({
+                    error: { message: 'Invalid customer ID provided' }
+                });
+            }
+        }
+
         // Create order
         const order = await prisma.order.create({
             data: {
-                customerId: req.user.id,
+                customerId: finalCustomerId,
                 orderNumber,
                 orderType,
                 pickupAddress,

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/contexts/AuthContext";
-import { ordersAPI, transportAPI, paymentQRAPI, chatsAPI, getImageUrl } from "@/lib/api";
+import { ordersAPI, transportAPI, paymentQRAPI, chatsAPI, getImageUrl, customersAPI } from "@/lib/api";
 import OrderStatusBadge from "@/components/dashboard/OrderStatusBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -163,6 +163,9 @@ const DashboardOrders = () => {
     amount: "",
     method: "M_PESA"
   });
+
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
 
   const isAdmin = user?.role === "ADMIN";
   const isAgent = user?.role === "AGENT";
@@ -350,6 +353,9 @@ const DashboardOrders = () => {
     if (isCustomer) {
       fetchPaymentQRs();
     }
+    if (isAdmin) {
+      fetchCustomers();
+    }
   }, [statusFilter, currentPage]);
 
   useEffect(() => {
@@ -407,6 +413,17 @@ const DashboardOrders = () => {
     }
   };
 
+  const fetchCustomers = async () => {
+    try {
+      const response: any = await customersAPI.list();
+      if (response && response.success) {
+        setCustomers(response.data || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch customers:", error);
+    }
+  };
+
   const handleCreateOrder = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -451,6 +468,7 @@ const DashboardOrders = () => {
       description: finalDescription,
       packageWeight: totalWeight,
       productImageUrls: allImageUrls,
+      ...(isAdmin && selectedCustomerId ? { customerId: selectedCustomerId } : {}),
     };
 
     try {
@@ -465,6 +483,7 @@ const DashboardOrders = () => {
           orderType: "TYPE_A",
           productPrice: "",
         });
+        setSelectedCustomerId("");
         setItems([
           {
             id: Date.now().toString(),
@@ -832,6 +851,28 @@ const DashboardOrders = () => {
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCreateOrder} className="space-y-4">
+            {isAdmin && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Select Customer</label>
+                <Select
+                  value={selectedCustomerId}
+                  onValueChange={setSelectedCustomerId}
+                  required
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a customer" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {customers.map((customer) => (
+                      <SelectItem key={customer.id} value={customer.id}>
+                        {customer.name} ({customer.phone || customer.email})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[10px] text-muted-foreground italic">Admin can place an order on behalf of a customer.</p>
+              </div>
+            )}
             <div className="space-y-2">
               <label className="text-sm font-medium">Pickup Address</label>
               <div className="flex gap-2">
